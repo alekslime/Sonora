@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
@@ -64,6 +65,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.sonora.data.Album
+import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.toMinSec
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
@@ -191,6 +193,12 @@ private fun InfoBlock(state: NowPlayingState, onBack: (() -> Unit)?, modifier: M
             Spacer(Modifier.height(8.dp))
         }
         Text(
+            "Track %02d / %02d".format(state.trackIndex + 1, state.album.tracks.size),
+            style = type.labelCaps,
+            color = colors.ivoryFaint,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
             state.track.title,
             style = type.headline,
             color = colors.ivory,
@@ -248,11 +256,12 @@ private fun Stage(
     cueLift: Float,
     modifier: Modifier = Modifier,
 ) {
+    val colors = LocalSonoraColors.current
     val density = LocalDensity.current
     BoxWithConstraints(modifier) {
-        val diameter = remember(maxWidth, maxHeight) { minOf(maxWidth * 0.90f, maxHeight * 0.72f) }
+        val diameter = remember(maxWidth, maxHeight) { minOf(maxWidth * 0.96f, maxHeight * 0.68f) }
         val diameterPx = remember(density, diameter) { with(density) { diameter.toPx() } }
-        val vinylCx = constraints.maxWidth * 0.44f
+        val vinylCx = constraints.maxWidth * 0.45f
         val vinylCy = constraints.maxHeight * 0.46f
         val vinylLeft = vinylCx - diameterPx / 2f
         val vinylTop = vinylCy - diameterPx / 2f
@@ -270,8 +279,28 @@ private fun Stage(
         val cueLiftPx = remember(density, cueLift) { with(density) { 10.dp.toPx() } * cueLift }
         val prismLeft = vinylLeft + diameterPx * 0.14f
         val prismTop = vinylTop + diameterPx * 0.58f
+        val art = rememberAlbumArtwork(state.album)
+        val glowSize = diameter * 1.5f
+        val glowPx = remember(density, glowSize) { with(density) { glowSize.toPx() } }
+        val glowBrush = remember(colors) {
+            Brush.radialGradient(
+                colors = listOf(colors.amberGlow.copy(alpha = 0.35f), Color.Transparent),
+                radius = glowPx / 2f,
+            )
+        }
 
         Box(Modifier.fillMaxSize()) {
+            Box(
+                Modifier
+                    .offset {
+                        IntOffset(
+                            (vinylCx - glowPx / 2f).roundToInt(),
+                            (vinylCy - glowPx / 2f).roundToInt(),
+                        )
+                    }
+                    .size(glowSize)
+                    .background(glowBrush),
+            )
             AnimatedContent(
                 targetState = state.trackIndex,
                 transitionSpec = {
@@ -285,12 +314,12 @@ private fun Stage(
             ) { track ->
                 // Keyed so each track gets a fresh record (needle drop).
                 key(track) {
-                    Vinyl(album = state.album, diameter = diameter, isPlaying = state.isPlaying)
+                    Vinyl(album = state.album, diameter = diameter, isPlaying = state.isPlaying, art = art)
                 }
             }
             Tonearm(pivot = pivot, stylus = stylus, cueLiftPx = cueLiftPx)
             PrismMotif(
-                size = 76.dp,
+                size = 88.dp,
                 energy = mockEnergy(state.positionMs, state.isPlaying),
                 modifier = Modifier.offset { IntOffset(prismLeft.roundToInt(), prismTop.roundToInt()) },
             )

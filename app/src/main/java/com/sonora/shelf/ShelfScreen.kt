@@ -1,6 +1,7 @@
 package com.sonora.shelf
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -22,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.Layout
@@ -149,7 +151,7 @@ private fun ShelfStack(
         }
         val spineHeight = remember(artSize) { (artSize * 0.15f).coerceIn(34.dp, 54.dp) }
         val spacing = remember(spineHeight) { spineHeight + 44.dp }
-        val cameraDistancePx = remember(density) { 24f * density.density }
+        val cameraDistancePx = remember(density) { 14f * density.density }
         state.spacingPx = with(density) { spacing.toPx() }
 
         val range = ShelfGeometry.visibleRange(state.offset.value, albums.size)
@@ -179,6 +181,7 @@ private fun ShelfStack(
                             spineHeight = spineHeight,
                             cameraDistancePx = cameraDistancePx,
                             placement = ShelfGeometry.placement(distance, state.spacingPx),
+                            distance = distance,
                             selected = index == state.selectedIndex,
                             onTap = { onSleeveTap(index) },
                         )
@@ -192,7 +195,8 @@ private fun ShelfStack(
         ) { measurables, constraints ->
             val artPx = with(density) { artSize.roundToPx() }
             val spinePx = with(density) { spineHeight.roundToPx() }
-            val sleeveH = artPx + spinePx
+            val shadowPx = with(density) { SleeveShadowHeight.roundToPx() }
+            val sleeveH = artPx + spinePx + shadowPx
             val placeables = measurables.map { it.measure(Constraints.fixed(artPx, sleeveH)) }
             layout(constraints.maxWidth, constraints.maxHeight) {
                 val anchorX = (constraints.maxWidth - artPx) / 2
@@ -211,5 +215,22 @@ private fun ShelfStack(
                 }
             }
         }
+
+        // Static vignette for photographic depth. No input handling,
+        // so taps and drags pass straight through to the stack.
+        val vignetteRadius = remember(density, maxWidth, maxHeight) {
+            val longest = if (maxWidth > maxHeight) maxWidth else maxHeight
+            with(density) { longest.toPx() * 0.72f }
+        }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f)),
+                        radius = vignetteRadius,
+                    ),
+                ),
+        )
     }
 }

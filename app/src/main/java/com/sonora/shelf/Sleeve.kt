@@ -35,6 +35,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -182,7 +183,8 @@ fun Sleeve(
                     color = if (selected) colors.ivory else colors.ivoryDim,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
@@ -191,9 +193,10 @@ fun Sleeve(
                     color = colors.ivoryFaint,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Start,
                     modifier = Modifier
-                        .weight(1f, fill = false)
-                        .padding(end = 10.dp),
+                        .weight(1f)
+                        .padding(end = 11.dp),
                 )
             }
             // Physical thickness: lit top edge, dark bottom edge.

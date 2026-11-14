@@ -55,36 +55,36 @@ fun Tonearm(
         val backX = p.x - s.x
         val backY = p.y - s.y
         val backLen = (kotlin.math.hypot(backX, backY)).coerceAtLeast(1f)
-        val stub = Offset(p.x + backX / backLen * 34f, p.y + backY / backLen * 34f)
-        drawLine(darkMetal, p, stub, strokeWidth = 10f, cap = StrokeCap.Round)
-        drawCircle(darkMetal, 13f, stub)
-        drawCircle(Color(0xFF1C1C20), 13f, stub, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+        val stub = Offset(p.x + backX / backLen * 42f, p.y + backY / backLen * 42f)
+        drawLine(darkMetal, p, stub, strokeWidth = 12f, cap = StrokeCap.Round)
+        drawCircle(darkMetal, 16f, stub)
+        drawCircle(Color(0xFF1C1C20), 16f, stub, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
 
         // Arm tube from pivot to stylus.
-        drawLine(silver, p, s, strokeWidth = 7f, cap = StrokeCap.Round)
-        drawLine(Color.White.copy(alpha = 0.25f), p, s, strokeWidth = 2f, cap = StrokeCap.Round)
+        drawLine(silver, p, s, strokeWidth = 10f, cap = StrokeCap.Round)
+        drawLine(Color.White.copy(alpha = 0.25f), p, s, strokeWidth = 3f, cap = StrokeCap.Round)
 
         // Headshell angled along the arm at the stylus.
         val armAngle = Math.toDegrees(atan2(s.y - p.y, s.x - p.x).toDouble()).toFloat()
         rotate(armAngle, s) {
             drawRect(
                 color = Color(0xFF1C1C20),
-                topLeft = Offset(s.x - 4f, s.y - 7f),
-                size = androidx.compose.ui.geometry.Size(30f, 14f),
+                topLeft = Offset(s.x - 5f, s.y - 9f),
+                size = androidx.compose.ui.geometry.Size(38f, 18f),
             )
             drawRect(
                 color = Color(0xFFE0A458),
-                topLeft = Offset(s.x + 22f, s.y - 7f),
-                size = androidx.compose.ui.geometry.Size(4f, 14f),
+                topLeft = Offset(s.x + 28f, s.y - 9f),
+                size = androidx.compose.ui.geometry.Size(5f, 18f),
             )
         }
         // Stylus tip.
-        drawCircle(Color.White.copy(alpha = 0.8f), 2.5f, s)
+        drawCircle(Color.White.copy(alpha = 0.8f), 3f, s)
 
         // Pivot base with a restrained amber collar.
-        drawCircle(Color(0xFF1C1C20), 26f, p)
-        drawCircle(darkMetal, 26f, p, style = androidx.compose.ui.graphics.drawscope.Stroke(3f))
-        drawCircle(Color(0xFFE0A458).copy(alpha = 0.8f), 17f, p, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
-        drawCircle(silver, 6f, p)
+        drawCircle(Color(0xFF1C1C20), 32f, p)
+        drawCircle(darkMetal, 32f, p, style = androidx.compose.ui.graphics.drawscope.Stroke(4f))
+        drawCircle(Color(0xFFE0A458).copy(alpha = 0.8f), 21f, p, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+        drawCircle(silver, 8f, p)
     }
 }

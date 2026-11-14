@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base theme only configures the window; all UI styling lives in Compose (M0). -->
+    <style name="Theme.Sonora" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/sonora_obsidian</item>
+        <item name="android:statusBarColor">@color/sonora_obsidian</item>
+        <item name="android:navigationBarColor">@color/sonora_obsidian</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

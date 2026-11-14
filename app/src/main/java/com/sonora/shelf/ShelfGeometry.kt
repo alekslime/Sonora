@@ -36,6 +36,10 @@ object ShelfGeometry {
         return SleevePlacement(scale, alpha, dim, distance * spacingPx)
     }
 
+    /** Distant sleeves desaturate slightly — an aerial-perspective depth cue. */
+    fun saturation(distance: Float): Float =
+        (1f - 0.09f * abs(distance)).coerceIn(0.6f, 1f)
+
     fun visibleRange(offset: Float, count: Int): IntRange {
         if (count <= 0) return IntRange.EMPTY
         val lo = floor(offset - VISIBLE_ABOVE).toInt().coerceAtLeast(0)

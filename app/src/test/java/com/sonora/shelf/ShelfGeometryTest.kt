@@ -35,6 +35,14 @@ class ShelfGeometryTest {
     }
 
     @Test
+    fun saturationFadesWithDistance() {
+        assertEquals(1f, ShelfGeometry.saturation(0f), 0.001f)
+        assertEquals(0.91f, ShelfGeometry.saturation(1f), 0.001f)
+        assertEquals(0.64f, ShelfGeometry.saturation(-4f), 0.001f)
+        assertEquals(0.6f, ShelfGeometry.saturation(9f), 0.001f)
+    }
+
+    @Test
     fun visibleRangeStaysInBounds() {
         assertEquals(0..2, ShelfGeometry.visibleRange(0f, 20))
         assertEquals(15..19, ShelfGeometry.visibleRange(19f, 20))

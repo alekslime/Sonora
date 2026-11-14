@@ -29,13 +29,15 @@ import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
 
 /**
- * M1 playback controls. The playback engine arrives in M5, so these render
- * the specified actions (Play, Shuffle, queue) in their real layout but
- * honestly disabled, with a caption that says exactly that. No fake
- * playback state is presented.
+ * Detail playback actions. Play and Shuffle open Now Playing (simulated
+ * until M5); Queue stays honestly disabled with a caption saying so.
  */
 @Composable
-fun PrototypePlaybackControls(modifier: Modifier = Modifier) {
+fun PrototypePlaybackControls(
+    onPlay: () -> Unit,
+    onShuffle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -47,24 +49,30 @@ fun PrototypePlaybackControls(modifier: Modifier = Modifier) {
                 icon = Icons.Filled.PlayArrow,
                 label = "Play",
                 primary = true,
+                enabled = true,
+                onClick = onPlay,
                 modifier = Modifier.weight(1f),
             )
             PrototypeAction(
                 icon = Icons.Filled.Shuffle,
                 label = "Shuffle",
                 primary = false,
+                enabled = true,
+                onClick = onShuffle,
                 modifier = Modifier.weight(1f),
             )
             PrototypeAction(
                 icon = Icons.Filled.QueueMusic,
                 label = "Queue",
                 primary = false,
+                enabled = false,
+                onClick = {},
                 modifier = Modifier.weight(1f),
             )
         }
         Spacer(Modifier.height(10.dp))
         Text(
-            "Playback arrives in M5 — controls shown for layout.",
+            "Simulated playback — queue and real audio arrive in M5.",
             style = type.caption,
             color = colors.ivoryFaint,
             textAlign = TextAlign.Center,
@@ -77,6 +85,8 @@ private fun PrototypeAction(
     icon: ImageVector,
     label: String,
     primary: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalSonoraColors.current
@@ -87,8 +97,8 @@ private fun PrototypeAction(
     val buttonPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     if (primary) {
         Button(
-            onClick = {},
-            enabled = false,
+            onClick = onClick,
+            enabled = enabled,
             modifier = modifier,
             contentPadding = buttonPadding,
             colors = ButtonDefaults.buttonColors(
@@ -102,8 +112,8 @@ private fun PrototypeAction(
         }
     } else {
         OutlinedButton(
-            onClick = {},
-            enabled = false,
+            onClick = onClick,
+            enabled = enabled,
             modifier = modifier,
             contentPadding = buttonPadding,
             colors = ButtonDefaults.outlinedButtonColors(

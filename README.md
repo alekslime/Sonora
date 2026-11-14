@@ -6,9 +6,9 @@ tracking.
 
 ## Milestones
 
-- M0 — Brand and design system.
-- M1 — Shelf prototype (mock library, perspective stack, album detail).
-- M2 — Now Playing prototype. (planned)
+- M0 — Brand and design system. (done)
+- M1 — Shelf prototype (mock library, perspective stack, album detail). (done)
+- M2 — Now Playing prototype (vinyl, tonearm, prism, simulated playback). (done)
 - M3 — Liquid visualizer prototype. (planned)
 - M4 — Audio Studio and gestures. (planned)
 - M5 — Real local music functionality. (planned)
@@ -40,5 +40,6 @@ Run unit tests:
 - `app/src/main/java/com/sonora/data/` — models, mock library, artwork pipeline.
 - `app/src/main/java/com/sonora/shelf/` — Shelf layout, sleeves, state.
 - `app/src/main/java/com/sonora/detail/` — album detail.
+- `app/src/main/java/com/sonora/nowplaying/` — Now Playing stage and mock transport.
 - `app/src/main/java/com/sonora/browse/` — compact list/grid browsing.
 - `app/src/main/java/com/sonora/components/` — shared composables.

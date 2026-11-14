@@ -3,6 +3,7 @@ package com.sonora.detail
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonora.components.PrototypePlaybackControls
@@ -39,11 +41,17 @@ import com.sonora.theme.LocalSonoraTypography
 import com.sonora.theme.SonoraShapes
 
 /**
- * M1 album detail: artwork, identity, prototype controls and the track
- * list. Track rows are informational until M5 brings playback.
+ * Album detail: artwork, identity, playback actions and the track list.
+ * Play, shuffle and track taps open Now Playing (simulated until M5).
  */
 @Composable
-fun AlbumDetailScreen(album: Album, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun AlbumDetailScreen(
+    album: Album,
+    onBack: () -> Unit,
+    onPlayAlbum: (shuffle: Boolean) -> Unit,
+    onPlayTrack: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     BackHandler(onBack = onBack)
@@ -96,14 +104,22 @@ fun AlbumDetailScreen(album: Album, onBack: () -> Unit, modifier: Modifier = Mod
                     color = colors.ivoryDim,
                 )
                 Spacer(Modifier.height(18.dp))
-                PrototypePlaybackControls(Modifier.fillMaxWidth())
+                PrototypePlaybackControls(
+                    onPlay = { onPlayAlbum(false) },
+                    onShuffle = { onPlayAlbum(true) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Spacer(Modifier.height(20.dp))
                 Text("Tracks".uppercase(), style = type.labelCaps, color = colors.ivoryFaint)
                 Spacer(Modifier.height(4.dp))
             }
         }
         items(album.tracks, key = { it.number }) { track ->
-            TrackRow(track = track, modifier = Modifier.padding(horizontal = 24.dp))
+            TrackRow(
+                track = track,
+                onPlay = { onPlayTrack(track.number - 1) },
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
         }
         item { Spacer(Modifier.height(28.dp)) }
     }
@@ -128,12 +144,14 @@ private fun DetailHeader(label: String, onBack: () -> Unit, modifier: Modifier =
 }
 
 @Composable
-private fun TrackRow(track: Track, modifier: Modifier = Modifier) {
+private fun TrackRow(track: Track, onPlay: () -> Unit, modifier: Modifier = Modifier) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     Row(
         modifier
             .fillMaxWidth()
+            .clip(SonoraShapes.extraSmall)
+            .clickable(role = Role.Button, onClickLabel = "Play ${track.title}", onClick = onPlay)
             .padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -90,6 +90,7 @@ fun NowPlayingScreen(
     autoplay: Boolean,
     onBack: () -> Unit,
     onOpenLiquid: () -> Unit,
+    onOpenStudio: () -> Unit,
     onSession: (NowPlayingState) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -156,7 +157,11 @@ fun NowPlayingScreen(
                         .padding(end = 28.dp, top = 12.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    PlayerBody(state = state, onOpenLiquidSettings = { liquidSheetOpen = true })
+                    PlayerBody(
+                        state = state,
+                        onOpenLiquidSettings = { liquidSheetOpen = true },
+                        onOpenStudio = onOpenStudio,
+                    )
                 }
             }
         } else {
@@ -175,6 +180,7 @@ fun NowPlayingScreen(
                 PlayerBody(
                     state = state,
                     onOpenLiquidSettings = { liquidSheetOpen = true },
+                    onOpenStudio = onOpenStudio,
                     modifier = Modifier.padding(horizontal = 28.dp),
                 )
             }
@@ -260,6 +266,7 @@ private fun Artwork(album: Album, onOpenLiquid: () -> Unit, modifier: Modifier =
 private fun PlayerBody(
     state: NowPlayingState,
     onOpenLiquidSettings: () -> Unit,
+    onOpenStudio: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalSonoraColors.current
@@ -310,6 +317,7 @@ private fun PlayerBody(
         )
         Spacer(Modifier.height(4.dp))
         LiquidRow(onOpen = onOpenLiquidSettings)
+        StudioRow(onOpen = onOpenStudio)
         Spacer(Modifier.height(8.dp))
         Text(
             "Simulated playback — real audio arrives in M5.",
@@ -341,6 +349,25 @@ private fun LiquidRow(onOpen: () -> Unit, modifier: Modifier = Modifier) {
             style = type.caption,
             color = colors.amber,
         )
+        Spacer(Modifier.width(4.dp))
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = colors.ivoryFaint, modifier = Modifier.size(16.dp))
+    }
+}
+
+@Composable
+private fun StudioRow(onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = LocalSonoraColors.current
+    val type = LocalSonoraTypography.current
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(SonoraShapes.small)
+            .clickable(role = Role.Button, onClickLabel = "Open Audio Studio", onClick = onOpen)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text("Audio Studio".uppercase(), style = type.labelCaps, color = colors.ivoryDim)
         Spacer(Modifier.width(4.dp))
         Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = colors.ivoryFaint, modifier = Modifier.size(16.dp))
     }

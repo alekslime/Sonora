@@ -18,13 +18,20 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import android.content.Context
+import android.view.accessibility.AccessibilityManager
 import com.sonora.browse.BrowseScreen
 import com.sonora.data.MockLibrary
 import com.sonora.detail.AlbumDetailScreen
+import com.sonora.gesture.GestureConfigStore
+import com.sonora.gesture.GestureContext
+import com.sonora.gesture.SonoraGestureLayer
 import com.sonora.liquid.LiquidOverlay
 import com.sonora.nowplaying.NowPlayingScreen
 import com.sonora.nowplaying.NowPlayingState
 import com.sonora.shelf.ShelfScreen
+import com.sonora.studio.AudioStudioScreen
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.SonoraMotion
 import com.sonora.theme.SonoraTheme
@@ -66,7 +73,8 @@ private val StackSaver = Saver<List<Destination>, ArrayList<String>>(
 
 /**
  * SONORA root. Minimal state-machine navigation with a back stack:
- * Shelf <-> Detail -> Now Playing, Shelf <-> Browse.
+ * Shelf <-> Detail -> Now Playing, Shelf <-> Browse. Liquid and Audio
+ * Studio are overlays above navigation so playback state survives visits.
  */
 @Composable
 fun SonoraApp() {
@@ -77,8 +85,21 @@ fun SonoraApp() {
             mutableStateOf<List<Destination>>(listOf(Destination.Shelf))
         }
         var liquidOpen by rememberSaveable { mutableStateOf(false) }
+        var studioOpen by rememberSaveable { mutableStateOf(false) }
         var session by remember { mutableStateOf<NowPlayingState?>(null) }
         val current = stack.last()
+        val gestureConfig = GestureConfigStore.config
+        val appContext = LocalContext.current
+        // Accessibility services take precedence over three-finger input.
+        val touchExplorationOn = remember {
+            val manager = appContext.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
+            manager?.isEnabled == true && manager.isTouchExplorationEnabled
+        }
+        val gestureContext = when {
+            studioOpen -> GestureContext.STUDIO
+            current is Destination.NowPlaying -> GestureContext.NOW_PLAYING
+            else -> GestureContext.OTHER
+        }
         fun push(destination: Destination) {
             stack = stack + destination
         }
@@ -87,6 +108,16 @@ fun SonoraApp() {
         }
         BackHandler(enabled = stack.size > 1) { pop() }
 
+        SonoraGestureLayer(
+            enabled = gestureConfig.enabled && !touchExplorationOn,
+            holdDurationMs = gestureConfig.holdDurationMs,
+            context = gestureContext,
+            liquidOpen = liquidOpen,
+            hapticsEnabled = gestureConfig.haptics,
+            onOpenLiquid = { liquidOpen = true },
+            onOpenStudio = { studioOpen = true },
+            onCloseStudio = { studioOpen = false },
+        ) {
             Box(Modifier.fillMaxSize().background(colors.obsidian)) {
                 AnimatedContent(
                 targetState = current,
@@ -127,17 +158,26 @@ fun SonoraApp() {
                             autoplay = true,
                             onBack = { pop() },
                             onOpenLiquid = { liquidOpen = true },
+                            onOpenStudio = { studioOpen = true },
                             onSession = { session = it },
                         )
                     }
                 }
             }
+                if (studioOpen) {
+                    AudioStudioScreen(
+                        onClose = { studioOpen = false },
+                        touchExplorationOn = touchExplorationOn,
+                    )
+                }
                 if (liquidOpen) {
                     LiquidOverlay(
                         session = session,
                         onExit = { liquidOpen = false },
+                        motionEnabled = !gestureConfig.reducedMotion,
                     )
                 }
             }
+        }
     }
 }

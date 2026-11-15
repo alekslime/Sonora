@@ -111,4 +111,9 @@ object AudioStudioStore {
             ),
         )
     }
+
+    /** Bulk replace for M5 preference restore. */
+    fun replace(config: AudioStudioConfig) {
+        this.config = config
+    }
 }

@@ -14,10 +14,25 @@ import kotlin.random.Random
 enum class RepeatMode { OFF, ALL, ONE }
 
 /**
- * Mock playback state. Real transport semantics — play, pause, seek,
- * next/previous with end-of-track advance, shuffle and repeat — driven by
- * a ticker so the UI behaves like the real engine will in M5. Only the
- * audio output itself is simulated.
+ * Commands [NowPlayingState] forwards to the real engine. The state machine
+ * stays the single owner of transport policy (shuffle picks, repeat wraps,
+ * prev threshold); the engine only renders audio.
+ */
+interface EngineHandle {
+    /** Cues [index] at [uri] and starts it from the top. */
+    fun enginePlay(index: Int, uri: String)
+    fun engineResume()
+    fun enginePause()
+    fun engineSeekTo(positionMs: Long)
+}
+
+/**
+ * Playback state with real transport semantics — play, pause, seek,
+ * next/previous with end-of-track advance, shuffle and repeat. The state
+ * machine owns all policy; when [engine] is attached (M5 real albums) every
+ * decision also forwards to the engine, which renders audio and reports
+ * back through [syncTrack], [syncPlayback] and [onPlaylistEnded]. With no
+ * engine (demo albums) the ticker simulates the clock instead.
  */
 @Stable
 class NowPlayingState(album: Album, startTrackIndex: Int) {
@@ -34,6 +49,12 @@ class NowPlayingState(album: Album, startTrackIndex: Int) {
     var repeatMode by mutableStateOf(RepeatMode.OFF)
         private set
 
+    /** Platform audio session of the attached engine; 0 when unattached. */
+    var audioSessionId by mutableIntStateOf(0)
+
+    /** Real engine for [com.sonora.data.Album.isReal]; null for demo. */
+    var engine: EngineHandle? = null
+
     val track get() = album.tracks[trackIndex]
     val durationMs: Long get() = track.durationMs
     val fraction: Float
@@ -42,10 +63,12 @@ class NowPlayingState(album: Album, startTrackIndex: Int) {
     fun play() {
         if (positionMs >= durationMs) positionMs = 0L
         isPlaying = true
+        engine?.engineResume()
     }
 
     fun pause() {
         isPlaying = false
+        engine?.enginePause()
     }
 
     fun toggle() = if (isPlaying) pause() else play()
@@ -64,6 +87,7 @@ class NowPlayingState(album: Album, startTrackIndex: Int) {
 
     fun seekTo(position: Long) {
         positionMs = position.coerceIn(0L, durationMs)
+        engine?.engineSeekTo(positionMs)
     }
 
     fun next() {
@@ -74,15 +98,20 @@ class NowPlayingState(album: Album, startTrackIndex: Int) {
             }
             trackIndex = candidate
             positionMs = 0L
+            forwardPlay()
         } else if (trackIndex < album.tracks.lastIndex) {
             trackIndex += 1
             positionMs = 0L
+            forwardPlay()
         } else if (repeatMode == RepeatMode.ALL) {
             trackIndex = 0
             positionMs = 0L
+            forwardPlay()
         } else {
             positionMs = durationMs
             isPlaying = false
+            engine?.enginePause()
+            engine?.engineSeekTo(durationMs)
         }
     }
 
@@ -93,6 +122,52 @@ class NowPlayingState(album: Album, startTrackIndex: Int) {
             trackIndex -= 1
             positionMs = 0L
         }
+        forwardPlay()
+    }
+
+    /** Cues the current track on the engine; no-op without engine or URI. */
+    private fun forwardPlay() {
+        val uri = track.uri ?: return
+        engine?.enginePlay(trackIndex, uri)
+    }
+
+    /** Mirrors an engine-reported natural (gapless) transition. */
+    fun syncTrack(index: Int) {
+        if (engine == null || index !in album.tracks.indices) return
+        trackIndex = index
+        positionMs = 0L
+    }
+
+    /** Mirrors engine position/play flags from the poll loop. */
+    fun syncPlayback(position: Long, playing: Boolean) {
+        if (engine == null) return
+        positionMs = position.coerceIn(0L, durationMs)
+        isPlaying = playing && positionMs < durationMs
+    }
+
+    /** Natural playlist end: same policy as running past the last track. */
+    fun onPlaylistEnded() {
+        if (engine == null) return
+        next()
+    }
+
+    /**
+     * Previews the M6 crossfade target without advancing: the same pick
+     * [next] would make, or null when playback would stop. The shuffle
+     * pick commits when the fade starts, so a cancelled fade simply
+     * discards it.
+     */
+    fun previewNext(): Int? {
+        if (shuffle && album.tracks.size > 1) {
+            var candidate = trackIndex
+            while (candidate == trackIndex) {
+                candidate = Random.nextInt(album.tracks.size)
+            }
+            return candidate
+        }
+        if (trackIndex < album.tracks.lastIndex) return trackIndex + 1
+        if (repeatMode == RepeatMode.ALL) return 0
+        return null
     }
 
     /** Restore a persisted position (rotation / process death). */

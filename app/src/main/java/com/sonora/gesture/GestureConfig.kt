@@ -46,4 +46,9 @@ object GestureConfigStore {
     fun setReducedMotion(enabled: Boolean) {
         config = config.copy(reducedMotion = enabled)
     }
+
+    /** Bulk replace for M5 preference restore. */
+    fun replace(config: GestureConfig) {
+        this.config = config
+    }
 }

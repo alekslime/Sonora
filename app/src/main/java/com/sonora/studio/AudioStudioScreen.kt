@@ -56,10 +56,15 @@ import com.sonora.theme.SonoraShapes
 /**
  * M4 Audio Studio overlay: ten-band EQ, presets, preamp, ReplayGain,
  * gapless/crossfade, output-route readout and gesture preferences.
- * Settings are modeled now and shape real audio in M5/M6.
+ * Every setting drives the M6 background engine live.
  */
 @Composable
-fun AudioStudioScreen(onClose: () -> Unit, modifier: Modifier = Modifier) {
+fun AudioStudioScreen(
+    onClose: () -> Unit,
+    sourceLabel: String,
+    formatLine: String?,
+    modifier: Modifier = Modifier,
+) {
     val colors = LocalSonoraColors.current
     BackHandler(onBack = onClose)
     Column(
@@ -94,12 +99,12 @@ fun AudioStudioScreen(onClose: () -> Unit, modifier: Modifier = Modifier) {
             Spacer(Modifier.height(20.dp))
             PlaybackSection()
             Spacer(Modifier.height(20.dp))
-            OutputSection()
+            OutputSection(sourceLabel = sourceLabel, formatLine = formatLine)
             Spacer(Modifier.height(20.dp))
             GestureSection()
             Spacer(Modifier.height(16.dp))
             Text(
-                "Studio settings shape real audio in M5/M6.",
+                "Every setting shapes the playing audio live.",
                 style = LocalSonoraTypography.current.caption,
                 color = colors.ivoryFaint,
                 textAlign = TextAlign.Center,
@@ -320,7 +325,7 @@ private fun ReplayGainSection(modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth()) {
         SectionTitle("Volume normalization")
         Text(
-            "ReplayGain applies only when tags exist; nothing is invented.",
+            "Reads ReplayGain tags (MP3, FLAC); files without tags play untouched.",
             style = type.caption,
             color = colors.ivoryFaint,
         )
@@ -361,7 +366,7 @@ private fun PlaybackSection(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(4.dp))
         ToggleRow(
             label = "Crossfade",
-            caption = "Never into true gapless album playback",
+            caption = "Fades skips and shuffle; gapless album flow stays intact",
             checked = config.crossfadeEnabled,
             onChecked = { AudioStudioStore.setCrossfadeEnabled(it) },
         )
@@ -419,7 +424,7 @@ private fun ToggleRow(
 }
 
 @Composable
-private fun OutputSection(modifier: Modifier = Modifier) {
+private fun OutputSection(sourceLabel: String, formatLine: String?, modifier: Modifier = Modifier) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     val context = LocalContext.current
@@ -448,10 +453,18 @@ private fun OutputSection(modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            "Source: mock library. Format details arrive with local files (M5).",
+            "Source: $sourceLabel.",
             style = type.caption,
             color = colors.ivoryFaint,
         )
+        if (formatLine != null) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "Playing: $formatLine.",
+                style = type.mono,
+                color = colors.ivoryDim,
+            )
+        }
     }
 }
 

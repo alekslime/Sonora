@@ -179,4 +179,35 @@ class PlaybackStateTest {
         state.prev()
         assertEquals(0, state.trackIndex)
     }
+
+    @Test
+    fun previewNextFollowsSequentialOrder() {
+        assertEquals(1, NowPlayingState(album(), 0).previewNext())
+        assertEquals(2, NowPlayingState(album(), 1).previewNext())
+    }
+
+    @Test
+    fun previewNextIsNullAtTailWithoutRepeat() {
+        assertEquals(null, NowPlayingState(album(), 2).previewNext())
+    }
+
+    @Test
+    fun previewNextWrapsWithRepeatAll() {
+        val state = NowPlayingState(album(), 2)
+        state.cycleRepeat() // OFF -> ALL
+        assertEquals(0, state.previewNext())
+    }
+
+    @Test
+    fun previewNextNeverAdvances() {
+        val state = NowPlayingState(album(), 0)
+        state.toggleShuffle()
+        repeat(20) {
+            val pick = state.previewNext()!!
+            assertTrue(pick in 0..2)
+            assertTrue(pick != 0)
+        }
+        assertEquals(0, state.trackIndex)
+        assertEquals(false, state.isPlaying)
+    }
 }

@@ -68,6 +68,7 @@ fun BrowseScreen(
     onOpenAlbum: (Album) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    demo: Boolean = false,
 ) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
@@ -107,7 +108,11 @@ fun BrowseScreen(
             Spacer(Modifier.width(4.dp))
             Text("Browse".uppercase(), style = type.labelCaps, color = colors.ivory)
             Spacer(Modifier.weight(1f))
-            Text("${visible.size} records", style = type.caption, color = colors.ivoryFaint)
+            Text(
+                if (demo) "Demo  •  ${visible.size} records" else "${visible.size} records",
+                style = type.caption,
+                color = colors.ivoryFaint,
+            )
         }
 
         TextField(
@@ -240,7 +245,7 @@ private fun ListRow(album: Album, onOpen: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                "${album.artist}  •  ${album.year}",
+                "${album.artist}  •  ${album.displayYear}",
                 style = type.caption,
                 color = colors.ivoryDim,
                 maxLines = 1,
@@ -285,7 +290,7 @@ private fun GridCell(album: Album, onOpen: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            "${album.artist}  •  ${album.year}",
+            "${album.artist}  •  ${album.displayYear}",
             style = type.caption,
             color = colors.ivoryDim,
             maxLines = 1,

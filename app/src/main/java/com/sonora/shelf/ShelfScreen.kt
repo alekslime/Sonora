@@ -2,7 +2,9 @@ package com.sonora.shelf
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -28,6 +30,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +44,7 @@ import kotlinx.coroutines.launch
 
 /**
  * M1 Shelf: a vertical stack of floating, perspective-projected sleeves.
+ * In M5 demo mode a banner offers the way back to the on-device library.
  */
 @Composable
 fun ShelfScreen(
@@ -48,6 +52,8 @@ fun ShelfScreen(
     onOpenAlbum: (Album) -> Unit,
     onBrowseAll: () -> Unit,
     modifier: Modifier = Modifier,
+    demo: Boolean = false,
+    onExitDemo: (() -> Unit)? = null,
 ) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
@@ -62,9 +68,16 @@ fun ShelfScreen(
     ) {
         ShelfHeader(
             count = albums.size,
+            demo = demo,
             onBrowseAll = onBrowseAll,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
         )
+        if (demo && onExitDemo != null) {
+            DemoBanner(
+                onExitDemo = onExitDemo,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+        }
         ShelfStack(
             albums = albums,
             state = state,
@@ -86,7 +99,7 @@ fun ShelfScreen(
 }
 
 @Composable
-private fun ShelfHeader(count: Int, onBrowseAll: () -> Unit, modifier: Modifier = Modifier) {
+private fun ShelfHeader(count: Int, demo: Boolean, onBrowseAll: () -> Unit, modifier: Modifier = Modifier) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -94,7 +107,7 @@ private fun ShelfHeader(count: Int, onBrowseAll: () -> Unit, modifier: Modifier 
             Text("SONORA".uppercase(), style = type.labelCaps, color = colors.ivory)
             Spacer(Modifier.height(2.dp))
             Text(
-                "$count records",
+                if (demo) "Demo  •  $count records" else "$count records",
                 style = type.caption,
                 color = colors.ivoryFaint,
             )
@@ -103,6 +116,26 @@ private fun ShelfHeader(count: Int, onBrowseAll: () -> Unit, modifier: Modifier 
         TextButton(onClick = onBrowseAll) {
             Text("Browse", style = type.labelCaps, color = colors.amber)
         }
+    }
+}
+
+@Composable
+private fun DemoBanner(onExitDemo: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = LocalSonoraColors.current
+    val type = LocalSonoraTypography.current
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp)
+            .clickable(role = Role.Button, onClickLabel = "Use my music library", onClick = onExitDemo),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            "Demo library — use my music".uppercase(),
+            style = type.labelCaps,
+            color = colors.amber,
+        )
     }
 }
 

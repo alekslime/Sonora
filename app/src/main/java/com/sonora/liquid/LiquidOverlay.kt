@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,6 +26,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.sonora.nowplaying.NowPlayingState
+import com.sonora.playback.PlaybackHub
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
 import kotlinx.coroutines.delay
@@ -32,8 +34,9 @@ import kotlinx.coroutines.delay
 /**
  * M3 Liquid overlay. Full-screen and temporary: any new touch exits
  * immediately to Now Playing, and there are no visualizer controls to
- * operate. Bands come from the live playback session when available,
- * otherwise the ambient fallback.
+ * operate. Bands come from the service FFT analyzer over the hub when
+ * the session has an engine audio session (M6), from the mock spectrum
+ * for demo playback, otherwise the ambient fallback.
  */
 @Composable
 fun LiquidOverlay(
@@ -47,7 +50,13 @@ fun LiquidOverlay(
     val config = LiquidConfigStore.config
     BackHandler(onBack = onExit)
 
-    val bands = if (session != null) {
+    // Live FFT rides the hub from the service analyzer; demo playback
+    // without an engine session keeps the mock spectrum.
+    val sessionId = session?.audioSessionId ?: 0
+    val liveBands by PlaybackHub.bands.collectAsState()
+    val bands = if (sessionId != 0) {
+        liveBands
+    } else if (session != null) {
         MockSpectrum.sample(session.positionMs, session.isPlaying)
     } else {
         Bands.Ambient

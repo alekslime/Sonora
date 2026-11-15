@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Icon
@@ -99,7 +99,7 @@ fun AlbumDetailScreen(
                 Text(album.artist, style = type.title, color = colors.amber)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "${album.year}  •  ${album.tracks.size} tracks  •  ${album.totalDurationMs.toMinSec()}",
+                    "${album.displayYear}  •  ${album.tracks.size} tracks  •  ${album.totalDurationMs.toMinSec()}",
                     style = type.mono,
                     color = colors.ivoryDim,
                 )
@@ -114,10 +114,10 @@ fun AlbumDetailScreen(
                 Spacer(Modifier.height(4.dp))
             }
         }
-        items(album.tracks, key = { it.number }) { track ->
+        itemsIndexed(album.tracks, key = { index, _ -> index }) { index, track ->
             TrackRow(
                 track = track,
-                onPlay = { onPlayTrack(track.number - 1) },
+                onPlay = { onPlayTrack(index) },
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
         }

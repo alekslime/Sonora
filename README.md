@@ -8,13 +8,11 @@ tracking.
 
 - M0 — Brand and design system. (done)
 - M1 — Shelf prototype (mock library, perspective stack, album detail). (done)
-- M2 — Now Playing: clean player (artwork, shuffle/repeat, simulated playback). (done)
+- M2 — Now Playing: clean player (artwork, shuffle/repeat, transport). (done)
 - M3 — Liquid visualizer (AGSL shader + Canvas fallback, presets, touch-to-exit). (done)
 - M4 — Audio Studio (10-band EQ, presets, ReplayGain, gapless/crossfade, output info) + three-finger gesture system. (done)
-- M3 — Liquid visualizer prototype (AGSL shader + Canvas fallback, presets, touch-to-exit). (done)
-- M4 — Audio Studio and gestures (10-band EQ, playback options, output info, three-finger state machine). (done)
-- M5 — Real local music functionality. (planned)
-- M6 — Android integration and polish. (planned)
+- M5 — Real local music: MediaStore scan, ExoPlayer engine, embedded art, real EQ/preamp/gapless, real visualizer FFT, saved prefs, demo fallback. (done)
+- M6 — Background service, notification/lock-screen controls, ReplayGain parsing, crossfade, format details. (done)
 
 ## Build
 
@@ -39,15 +37,13 @@ Run unit tests:
 ## Project layout
 
 - `app/src/main/java/com/sonora/theme/` — M0 design system.
-- `app/src/main/java/com/sonora/data/` — models, mock library, artwork pipeline.
+- `app/src/main/java/com/sonora/data/` — models, mock + MediaStore libraries, artwork pipeline, prefs.
 - `app/src/main/java/com/sonora/shelf/` — Shelf layout, sleeves, state.
 - `app/src/main/java/com/sonora/detail/` — album detail.
-- `app/src/main/java/com/sonora/nowplaying/` — Now Playing stage and mock transport.
-- `app/src/main/java/com/sonora/liquid/` — Liquid visualizer, presets and config.
-- `app/src/main/java/com/sonora/studio/` — Audio Studio config and screen.
-- `app/src/main/java/com/sonora/gesture/` — three-finger state machine and layer.
-- `app/src/main/java/com/sonora/liquid/` — Liquid visualizer, presets and mock spectrum.
-- `app/src/main/java/com/sonora/studio/` — Audio Studio EQ, playback options and output info.
-- `app/src/main/java/com/sonora/gesture/` — three-finger gesture state machine and config.
-- `app/src/main/java/com/sonora/browse/` — compact list/grid browsing.
+- `app/src/main/java/com/sonora/nowplaying/` — Now Playing screen and transport state.
+- `app/src/main/java/com/sonora/playback/` — M6 background service, controller bridge, orchestrator, crossfade, formats.
+- `app/src/main/java/com/sonora/liquid/` — Liquid visualizer, presets, mock + real spectrum.
+- `app/src/main/java/com/sonora/studio/` — Audio Studio config, screen, M5 effects bridge.
+- `app/src/main/java/com/sonora/gesture/` — three-finger state machine, layer and config.
+- `app/src/main/java/com/sonora/browse/` — compact list/grid browsing, library gate.
 - `app/src/main/java/com/sonora/components/` — shared composables.

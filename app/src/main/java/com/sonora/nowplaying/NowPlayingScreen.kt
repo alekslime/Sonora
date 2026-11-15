@@ -1,6 +1,11 @@
 package com.sonora.nowplaying
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -42,6 +47,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -57,6 +63,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -65,11 +72,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.sonora.data.Album
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.toMinSec
 import com.sonora.liquid.LiquidConfigStore
 import com.sonora.liquid.LiquidSettingsSheet
+import com.sonora.playback.PlaybackOrchestrator
+import com.sonora.playback.ServiceEngine
+import com.sonora.studio.AudioStudioStore
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
 import com.sonora.theme.SonoraShapes
@@ -79,8 +90,10 @@ private val ArtShape = RoundedCornerShape(8.dp)
 /**
  * Now Playing: a clean player in SONORA's voice. Large artwork (tap to
  * open Liquid), track identity, minimal progress, and full transport:
- * shuffle, previous, play/pause, next, repeat. Playback is simulated
- * (see [NowPlayingState]); the audio engine arrives in M5.
+ * shuffle, previous, play/pause, next, repeat. Real albums play through
+ * the M6 background service via the app-scoped orchestrator, so
+ * notification and lock-screen stay in sync; demo albums simulate
+ * playback with a screen-local state ticker.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,7 +108,7 @@ fun NowPlayingScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalSonoraColors.current
-    val state = remember(album.id, startTrackIndex) { NowPlayingState(album, startTrackIndex) }
+    val context = LocalContext.current
     BackHandler(onBack = onBack)
 
     var persistedTrack by rememberSaveable(album.id, startTrackIndex) { mutableIntStateOf(startTrackIndex) }
@@ -103,10 +116,52 @@ fun NowPlayingScreen(
     var persistedPlaying by rememberSaveable(album.id, startTrackIndex) { mutableStateOf(autoplay) }
     var persistedShuffle by rememberSaveable(album.id, startTrackIndex) { mutableStateOf(false) }
     var persistedRepeat by rememberSaveable(album.id, startTrackIndex) { mutableStateOf(RepeatMode.OFF) }
+
+    // Real playback joins the orchestrator session (started from Detail,
+    // or here after process death); demo keeps screen-local ticker state.
+    LaunchedEffect(album.id) {
+        if (album.isReal && PlaybackOrchestrator.state?.album?.id != album.id) {
+            PlaybackOrchestrator.startAlbum(
+                context = context,
+                album = album,
+                startIndex = persistedTrack,
+                positionMs = persistedPosition,
+                playing = persistedPlaying,
+                shuffle = persistedShuffle,
+            )
+        }
+    }
+    val localState = remember(album.id, startTrackIndex) { NowPlayingState(album, startTrackIndex) }
+    val orchestrated = PlaybackOrchestrator.state
+    val state = if (album.isReal && orchestrated?.album?.id == album.id) orchestrated else localState
+    val engine = remember(album.id) { if (album.isReal) ServiceEngine.get(context) else null }
+    // Service stopped alone (swiped away while paused) across a relaunch:
+    // restart the session where it stood instead of commanding a ghost.
+    val connected = if (engine != null) engine.connected.collectAsState().value else true
+    val hadConnection = if (engine != null) engine.hadConnection.collectAsState().value else false
+    LaunchedEffect(connected, hadConnection) {
+        val current = PlaybackOrchestrator.state
+        if (album.isReal && current?.album?.id == album.id && hadConnection && !connected) {
+            PlaybackOrchestrator.startAlbum(
+                context = context,
+                album = album,
+                startIndex = current.trackIndex,
+                positionMs = current.positionMs,
+                playing = current.isPlaying,
+                shuffle = current.shuffle,
+            )
+        }
+    }
+
     LaunchedEffect(state) {
-        state.restore(persistedTrack, persistedPosition, persistedPlaying, persistedShuffle, persistedRepeat)
         onSession(state)
-        state.ticker()
+        if (!album.isReal) {
+            state.restore(
+                persistedTrack, persistedPosition, persistedPlaying,
+                persistedShuffle, persistedRepeat,
+            )
+            state.ticker()
+        }
     }
     LaunchedEffect(state.trackIndex, state.positionMs, state.isPlaying, state.shuffle, state.repeatMode) {
         persistedTrack = state.trackIndex
@@ -114,6 +169,41 @@ fun NowPlayingScreen(
         persistedPlaying = state.isPlaying
         persistedShuffle = state.shuffle
         persistedRepeat = state.repeatMode
+    }
+    // Queue strategy follows shuffle and gapless; startAlbum owns the
+    // initial queue, so the first run only records what was applied.
+    val uris = remember(album.id) { album.tracks.mapNotNull { it.uri } }
+    val titles = remember(album.id) { album.tracks.map { it.title } }
+    val artists = remember(album.id) { List(album.tracks.size) { album.artist } }
+    val studioConfig = AudioStudioStore.config
+    val singleQueue = state.shuffle || !studioConfig.gapless
+    var appliedSingleQueue by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(singleQueue) {
+        if (appliedSingleQueue == null) {
+            appliedSingleQueue = singleQueue
+        } else if (appliedSingleQueue != singleQueue) {
+            appliedSingleQueue = singleQueue
+            engine?.sendQueue(uris, titles, artists, state.trackIndex, singleQueue, state.positionMs)
+        }
+    }
+    LaunchedEffect(state.repeatMode) {
+        engine?.sendRepeatOne(state.repeatMode == RepeatMode.ONE)
+    }
+    // The full Studio snapshot rides to the service, which applies EQ,
+    // preamp, ReplayGain and crossfade on its players.
+    LaunchedEffect(studioConfig) {
+        engine?.sendStudio(studioConfig)
+    }
+    // Background controls need the notification runtime permission.
+    val notifPermission =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(album.id) {
+        if (album.isReal && Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
     var liquidSheetOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -318,14 +408,16 @@ private fun PlayerBody(
         Spacer(Modifier.height(4.dp))
         LiquidRow(onOpen = onOpenLiquidSettings)
         StudioRow(onOpen = onOpenStudio)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Simulated playback — real audio arrives in M5.",
-            style = type.caption,
-            color = colors.ivoryFaint,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (!state.album.isReal) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Demo playback — allow library access to hear your music.",
+                style = type.caption,
+                color = colors.ivoryFaint,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 

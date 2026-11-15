@@ -104,6 +104,72 @@ class PlaybackStateTest {
     }
 
     @Test
+    fun shuffleNextPicksADifferentTrack() {
+        // Deterministic: the mock always picks a different index.
+        val state = NowPlayingState(album(), 1)
+        state.toggleShuffle()
+        assertTrue(state.shuffle)
+        state.next()
+        assertTrue(state.trackIndex in 0..2)
+        assertTrue(state.trackIndex != 1)
+        assertEquals(0L, state.positionMs)
+    }
+
+    @Test
+    fun repeatCyclesOffAllOne() {
+        val state = NowPlayingState(album(), 0)
+        assertEquals(RepeatMode.OFF, state.repeatMode)
+        state.cycleRepeat()
+        assertEquals(RepeatMode.ALL, state.repeatMode)
+        state.cycleRepeat()
+        assertEquals(RepeatMode.ONE, state.repeatMode)
+        state.cycleRepeat()
+        assertEquals(RepeatMode.OFF, state.repeatMode)
+    }
+
+    @Test
+    fun repeatAllWrapsAtAlbumEnd() {
+        val state = NowPlayingState(album(), 2)
+        state.cycleRepeat()
+        state.play()
+        state.next()
+        assertEquals(0, state.trackIndex)
+        assertEquals(0L, state.positionMs)
+        assertTrue(state.isPlaying)
+    }
+
+    @Test
+    fun repeatOneRestartsTrackOnAdvance() {
+        val state = NowPlayingState(album(), 1)
+        state.cycleRepeat()
+        state.cycleRepeat()
+        state.play()
+        state.seekTo(179_950L)
+        state.advanceBy(100L)
+        assertEquals(1, state.trackIndex)
+        assertEquals(0L, state.positionMs)
+        assertTrue(state.isPlaying)
+    }
+
+    @Test
+    fun manualNextStillAdvancesUnderRepeatOne() {
+        val state = NowPlayingState(album(), 0)
+        state.cycleRepeat()
+        state.cycleRepeat()
+        state.next()
+        assertEquals(1, state.trackIndex)
+    }
+
+    @Test
+    fun restoreKeepsShuffleAndRepeat() {
+        val state = NowPlayingState(album(), 0)
+        state.restore(2, 10_000L, true, shuffleOn = true, repeat = RepeatMode.ALL)
+        assertTrue(state.shuffle)
+        assertEquals(RepeatMode.ALL, state.repeatMode)
+        assertTrue(state.isPlaying)
+    }
+
+    @Test
     fun prevRestartsWhenPlayedPastThreshold() {
         val state = NowPlayingState(album(), 1)
         state.seekTo(10_000L)

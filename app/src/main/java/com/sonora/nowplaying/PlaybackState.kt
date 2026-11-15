@@ -8,12 +8,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.sonora.data.Album
 import kotlinx.coroutines.delay
+import kotlin.random.Random
+
+/** Repeat behavior for end-of-track advance. */
+enum class RepeatMode { OFF, ALL, ONE }
 
 /**
- * M2 mock playback state. Real transport semantics — play, pause, seek,
- * next/previous with end-of-track advance — driven by a ticker so the
- * vinyl, tonearm and progress behave like the real engine will in M5.
- * Only the audio output itself is simulated.
+ * Mock playback state. Real transport semantics — play, pause, seek,
+ * next/previous with end-of-track advance, shuffle and repeat — driven by
+ * a ticker so the UI behaves like the real engine will in M5. Only the
+ * audio output itself is simulated.
  */
 @Stable
 class NowPlayingState(album: Album, startTrackIndex: Int) {
@@ -24,6 +28,10 @@ class NowPlayingState(album: Album, startTrackIndex: Int) {
     var isPlaying by mutableStateOf(false)
         private set
     var positionMs by mutableLongStateOf(0L)
+        private set
+    var shuffle by mutableStateOf(false)
+        private set
+    var repeatMode by mutableStateOf(RepeatMode.OFF)
         private set
 
     val track get() = album.tracks[trackIndex]
@@ -42,13 +50,35 @@ class NowPlayingState(album: Album, startTrackIndex: Int) {
 
     fun toggle() = if (isPlaying) pause() else play()
 
+    fun toggleShuffle() {
+        shuffle = !shuffle
+    }
+
+    fun cycleRepeat() {
+        repeatMode = when (repeatMode) {
+            RepeatMode.OFF -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.OFF
+        }
+    }
+
     fun seekTo(position: Long) {
         positionMs = position.coerceIn(0L, durationMs)
     }
 
     fun next() {
-        if (trackIndex < album.tracks.lastIndex) {
+        if (shuffle && album.tracks.size > 1) {
+            var candidate = trackIndex
+            while (candidate == trackIndex) {
+                candidate = Random.nextInt(album.tracks.size)
+            }
+            trackIndex = candidate
+            positionMs = 0L
+        } else if (trackIndex < album.tracks.lastIndex) {
             trackIndex += 1
+            positionMs = 0L
+        } else if (repeatMode == RepeatMode.ALL) {
+            trackIndex = 0
             positionMs = 0L
         } else {
             positionMs = durationMs
@@ -66,10 +96,18 @@ class NowPlayingState(album: Album, startTrackIndex: Int) {
     }
 
     /** Restore a persisted position (rotation / process death). */
-    fun restore(track: Int, position: Long, playing: Boolean) {
+    fun restore(
+        track: Int,
+        position: Long,
+        playing: Boolean,
+        shuffleOn: Boolean = false,
+        repeat: RepeatMode = RepeatMode.OFF,
+    ) {
         trackIndex = track.coerceIn(album.tracks.indices)
         positionMs = position.coerceIn(0L, durationMs)
         isPlaying = playing && positionMs < durationMs
+        shuffle = shuffleOn
+        repeatMode = repeat
     }
 
     /** Advance the clock; called by [ticker], rolls over at track end. */
@@ -77,6 +115,8 @@ class NowPlayingState(album: Album, startTrackIndex: Int) {
         if (!isPlaying || elapsedMs <= 0L) return
         if (positionMs + elapsedMs < durationMs) {
             positionMs += elapsedMs
+        } else if (repeatMode == RepeatMode.ONE) {
+            positionMs = 0L
         } else {
             next()
         }

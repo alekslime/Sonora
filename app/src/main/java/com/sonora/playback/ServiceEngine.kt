@@ -55,15 +55,16 @@ class ServiceEngine private constructor(appContext: Context) : EngineHandle {
     /** True once a session has ever bound in this process. */
     val hadConnection: StateFlow<Boolean> = _hadConnection.asStateFlow()
 
-    init {
-        ensureController()
-    }
-
     private val listener = object : MediaController.Listener {
         override fun onDisconnected(controller: MediaController) {
             this@ServiceEngine.controller = null
             _connected.value = false
         }
+    }
+
+    // After every property above: init blocks run in declaration order.
+    init {
+        ensureController()
     }
 
     private fun ensureController() {
@@ -84,17 +85,25 @@ class ServiceEngine private constructor(appContext: Context) : EngineHandle {
                     _hadConnection.value = true
                     while (pending.isNotEmpty()) {
                         val block = pending.removeFirst()
-                        runCatching { block(connected) }
+                        try {
+                            block(connected)
+                        } catch (e: Exception) {
+                            android.util.Log.w("SonoraEng", "buffered command failed", e)
+                        }
                     }
-                }
+                } ?: android.util.Log.w("SonoraEng", "controller build failed")
             },
             ContextCompat.getMainExecutor(app),
         )
     }
 
-    private fun command(block: (MediaController) -> Unit) {
+    private fun command(name: String, block: (MediaController) -> Unit) {
         controller?.let {
-            runCatching { block(it) }
+            try {
+                block(it)
+            } catch (e: Exception) {
+                android.util.Log.w("SonoraEng", "command $name failed on live controller", e)
+            }
             return
         }
         if (pending.size >= MAX_PENDING) pending.removeFirst()
@@ -103,7 +112,7 @@ class ServiceEngine private constructor(appContext: Context) : EngineHandle {
     }
 
     private fun custom(name: String, args: Bundle) {
-        command { it.sendCustomCommand(SessionCommand(name, Bundle.EMPTY), args) }
+        command("custom:$name") { it.sendCustomCommand(SessionCommand(name, Bundle.EMPTY), args) }
     }
 
     override fun enginePlay(index: Int, uri: String) {
@@ -114,7 +123,7 @@ class ServiceEngine private constructor(appContext: Context) : EngineHandle {
     }
 
     override fun engineResume() {
-        command {
+        command("resume") {
             if (it.playbackState == Player.STATE_ENDED) {
                 it.seekTo(it.currentMediaItemIndex, 0L)
             }
@@ -123,11 +132,11 @@ class ServiceEngine private constructor(appContext: Context) : EngineHandle {
     }
 
     override fun enginePause() {
-        command { it.pause() }
+        command("pause") { it.pause() }
     }
 
     override fun engineSeekTo(positionMs: Long) {
-        command { it.seekTo(positionMs.coerceAtLeast(0L)) }
+        command("seek:$positionMs") { it.seekTo(positionMs.coerceAtLeast(0L)) }
     }
 
     fun sendQueue(

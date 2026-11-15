@@ -29,8 +29,9 @@ import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
 
 /**
- * Detail playback actions. Play and Shuffle open Now Playing (simulated
- * until M5); Queue stays honestly disabled with a caption saying so.
+ * Detail playback actions. Play and Shuffle open Now Playing (real audio
+ * for library albums, simulated in demo); Queue stays honestly disabled
+ * with a caption saying so.
  */
 @Composable
 fun PrototypePlaybackControls(
@@ -72,7 +73,7 @@ fun PrototypePlaybackControls(
         }
         Spacer(Modifier.height(10.dp))
         Text(
-            "Simulated playback — queue and real audio arrive in M5.",
+            "Play and Shuffle are live — the queue list is still to come.",
             style = type.caption,
             color = colors.ivoryFaint,
             textAlign = TextAlign.Center,

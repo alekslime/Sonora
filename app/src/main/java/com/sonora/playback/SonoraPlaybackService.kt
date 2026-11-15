@@ -249,6 +249,12 @@ class SonoraPlaybackService : MediaSessionService() {
             return MediaSession.ConnectionResult.accept(sessionCommands, playerCommands)
         }
 
+        // Interception (not gating): next/prev execute state-machine
+        // policy instead of raw player seeks. The return is a result code
+        // (SUCCESS forwards, anything else drops); the deprecation points
+        // at setAvailableCommands, which can only remove buttons, not
+        // redirect them.
+        @Suppress("DEPRECATION")
         override fun onPlayerCommandRequest(
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
@@ -261,15 +267,15 @@ class SonoraPlaybackService : MediaSessionService() {
                 Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
                 -> {
                     PlaybackOrchestrator.state?.next()
-                    Player.COMMAND_INVALID
+                    SessionResult.RESULT_ERROR_NOT_SUPPORTED
                 }
                 Player.COMMAND_SEEK_TO_PREVIOUS,
                 Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
                 -> {
                     PlaybackOrchestrator.state?.prev()
-                    Player.COMMAND_INVALID
+                    SessionResult.RESULT_ERROR_NOT_SUPPORTED
                 }
-                else -> playerCommand
+                else -> SessionResult.RESULT_SUCCESS
             }
         }
 

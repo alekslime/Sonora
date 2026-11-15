@@ -10,6 +10,7 @@ tracking.
 - M1 — Shelf prototype (mock library, perspective stack, album detail). (done)
 - M2 — Now Playing: clean player (artwork, shuffle/repeat, simulated playback). (done)
 - M3 — Liquid visualizer (AGSL shader + Canvas fallback, presets, touch-to-exit). (done)
+- M4 — Audio Studio (10-band EQ, presets, ReplayGain, gapless/crossfade, output info) + three-finger gesture system. (done)
 - M3 — Liquid visualizer prototype (AGSL shader + Canvas fallback, presets, touch-to-exit). (done)
 - M4 — Audio Studio and gestures (10-band EQ, playback options, output info, three-finger state machine). (done)
 - M5 — Real local music functionality. (planned)
@@ -43,6 +44,8 @@ Run unit tests:
 - `app/src/main/java/com/sonora/detail/` — album detail.
 - `app/src/main/java/com/sonora/nowplaying/` — Now Playing stage and mock transport.
 - `app/src/main/java/com/sonora/liquid/` — Liquid visualizer, presets and config.
+- `app/src/main/java/com/sonora/studio/` — Audio Studio config and screen.
+- `app/src/main/java/com/sonora/gesture/` — three-finger state machine and layer.
 - `app/src/main/java/com/sonora/liquid/` — Liquid visualizer, presets and mock spectrum.
 - `app/src/main/java/com/sonora/studio/` — Audio Studio EQ, playback options and output info.
 - `app/src/main/java/com/sonora/gesture/` — three-finger gesture state machine and config.

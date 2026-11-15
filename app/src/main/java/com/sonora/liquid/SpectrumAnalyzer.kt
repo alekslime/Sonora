@@ -23,6 +23,7 @@ class SpectrumAnalyzer {
     private var visualizer: Visualizer? = null
     private var sessionId: Int = 0
     private var bassEma: Float = 0f
+    private var peak: Float = 0f
 
     fun attach(audioSessionId: Int) {
         if (audioSessionId == sessionId && visualizer != null) return
@@ -46,6 +47,7 @@ class SpectrumAnalyzer {
     fun release() {
         active = false
         bassEma = 0f
+        peak = 0f
         bands = Bands.Ambient
         try {
             visualizer?.release()
@@ -71,24 +73,30 @@ class SpectrumAnalyzer {
             samplingRate: Int,
         ) {
             if (fft == null) return
-            val (next, ema) = fftToBands(fft, bassEma)
-            bassEma = ema
-            bands = next
+            val frame = fftToBands(fft, bassEma, peak)
+            bassEma = frame.bassEma
+            peak = frame.peak
+            bands = frame.bands
         }
     }
+
+    /** One analyzed frame: bands plus the carried-forward detector state. */
+    data class Frame(val bands: Bands, val bassEma: Float, val peak: Float)
 
     companion object {
         const val CAPTURE_RATE_HZ = 20
         const val MAX_CAPTURE = 1024
 
         /**
-         * Folds an interleaved real/imag FFT into [Bands], with [bassEma] as
-         * the running bass average for onset (pulse) detection. Returns the
-         * bands plus the updated EMA. Pure and tested.
+         * Folds an interleaved real/imag FFT into [Bands]. Levels
+         * self-calibrate: [peak] tracks the recent maximum with instant
+         * attack and slow decay, so quiet and loud masters alike fill the
+         * visual range without any fixed reference. [bassEma] feeds onset
+         * (pulse) detection. Pure and tested.
          */
-        fun fftToBands(fft: ByteArray, bassEma: Float): Pair<Bands, Float> {
+        fun fftToBands(fft: ByteArray, bassEma: Float, peak: Float): Frame {
             val binCount = fft.size / 2
-            if (binCount < 8) return Pair(Bands.Ambient, bassEma)
+            if (binCount < 8) return Frame(Bands.Ambient, bassEma, peak)
             val magnitudes = FloatArray(binCount) { i ->
                 val re = fft[2 * i].toInt()
                 val im = fft[2 * i + 1].toInt()
@@ -100,15 +108,19 @@ class SpectrumAnalyzer {
             val bass = mean(magnitudes, 1, bassEnd)
             val mid = mean(magnitudes, bassEnd, midEnd)
             val treble = mean(magnitudes, midEnd, binCount)
+            val frameMax = maxOf(bass, mid, treble)
+            val newPeak = maxOf(frameMax, peak * PEAK_DECAY)
+            val reference = maxOf(newPeak, PEAK_FLOOR)
             val newEma = bassEma + (bass - bassEma) * EMA_ALPHA
-            return Pair(
+            return Frame(
                 Bands(
-                    bass = perceptual(bass),
-                    mid = perceptual(mid),
-                    treble = perceptual(treble),
+                    bass = perceptual(bass, reference),
+                    mid = perceptual(mid, reference),
+                    treble = perceptual(treble, reference),
                     pulse = ((bass - bassEma).coerceAtLeast(0f) * PULSE_GAIN).coerceIn(0f, 1f),
                 ),
                 newEma,
+                newPeak,
             )
         }
 
@@ -119,13 +131,14 @@ class SpectrumAnalyzer {
             return sum / (to - from)
         }
 
-        /** Compresses raw magnitude into a 0..1 visual level. */
-        private fun perceptual(magnitude: Float): Float {
-            return sqrt((magnitude / REFERENCE).coerceIn(0f, 1f))
+        /** Compresses raw magnitude against the running peak into 0..1. */
+        private fun perceptual(magnitude: Float, reference: Float): Float {
+            return sqrt((magnitude / reference).coerceIn(0f, 1f))
         }
 
-        private const val REFERENCE = 8f
         private const val EMA_ALPHA = 0.2f
         private const val PULSE_GAIN = 3f
+        private const val PEAK_DECAY = 0.98f
+        private const val PEAK_FLOOR = 0.5f
     }
 }

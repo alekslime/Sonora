@@ -37,6 +37,7 @@ object SonoraPrefs {
     private val GEST_HOLD_MS = longPreferencesKey("gest_hold_ms")
     private val GEST_HAPTICS = booleanPreferencesKey("gest_haptics")
     private val GEST_REDUCED_MOTION = booleanPreferencesKey("gest_reduced_motion")
+    private val SNAPSHOT = stringPreferencesKey("playback_snapshot")
 
     suspend fun loadStudio(context: Context): AudioStudioConfig {
         val prefs = context.sonoraDataStore.data.first()
@@ -87,6 +88,18 @@ object SonoraPrefs {
             prefs[GEST_HAPTICS] = config.haptics
             prefs[GEST_REDUCED_MOTION] = config.reducedMotion
         }
+    }
+
+    /** M7 resumable session. Reads degrade to null (nothing to resume). */
+    suspend fun saveSnapshot(context: Context, snapshot: PlaybackSnapshot) {
+        context.sonoraDataStore.edit { prefs ->
+            prefs[SNAPSHOT] = PlaybackSnapshot.encode(snapshot)
+        }
+    }
+
+    suspend fun loadSnapshot(context: Context): PlaybackSnapshot? {
+        val prefs = context.sonoraDataStore.data.first()
+        return PlaybackSnapshot.decode(prefs[SNAPSHOT])
     }
 
     /** Comma-joined dB values, clamped to the Studio range. */

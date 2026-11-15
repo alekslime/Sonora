@@ -8,6 +8,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.ExoPlayer
@@ -20,9 +21,12 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.sonora.MainActivity
 import com.sonora.R
+import com.sonora.data.PlaybackSnapshot
 import com.sonora.data.SonoraPrefs
 import com.sonora.liquid.SpectrumAnalyzer
+import com.sonora.nowplaying.EngineHandle
 import com.sonora.nowplaying.NowPlayingState
+import com.sonora.nowplaying.RepeatMode
 import com.sonora.studio.AudioStudioConfig
 import com.sonora.studio.ReplayGain
 import com.sonora.studio.ReplayGainTags
@@ -49,6 +53,7 @@ class SonoraPlaybackService : MediaSessionService() {
     companion object {
         const val ACTION_START = "sonora.action.START"
         private const val POLL_MS = 100L
+        private const val SNAPSHOT_TICKS = 100
         private const val ART_TIMEOUT_MS = 400L
         private const val RG_CACHE_CAP = 32
         private const val ART_CACHE_CAP = 8
@@ -103,11 +108,7 @@ class SonoraPlaybackService : MediaSessionService() {
         val provider = DefaultMediaNotificationProvider(this)
         provider.setSmallIcon(R.drawable.ic_notification)
         setMediaNotificationProvider(provider)
-        scope.launch {
-            studio = SonoraPrefs.loadStudio(applicationContext)
-            applyStudioToPlayers()
-            applyVolumes()
-        }
+        scope.launch { ensureStudio() }
         scope.launch {
             snapshotFlow { analyzer.bands }.collect { PlaybackHub.publishBands(it) }
         }
@@ -142,8 +143,71 @@ class SonoraPlaybackService : MediaSessionService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        if (intent == null) stopSelf()
-        return START_NOT_STICKY
+        // A null intent means the system restarted us: resume only when
+        // listening was actually interrupted, otherwise stand down.
+        if (intent == null) scope.launch { restoreSnapshot() }
+        return START_STICKY
+    }
+
+    private var studioLoaded = false
+
+    private suspend fun ensureStudio() {
+        if (studioLoaded) return
+        studioLoaded = true
+        studio = SonoraPrefs.loadStudio(applicationContext)
+        applyStudioToPlayers()
+        applyVolumes()
+    }
+
+    /** M7 sticky resume: rebuilds the interrupted session headlessly. */
+    private suspend fun restoreSnapshot() {
+        ensureStudio()
+        val snapshot = SonoraPrefs.loadSnapshot(applicationContext)
+        val album = snapshot?.toAlbum()
+        if (snapshot == null || album == null || !album.isReal || !snapshot.wasPlaying) {
+            stopSelf()
+            return
+        }
+        val restored = NowPlayingState(album, snapshot.trackIndex).apply {
+            restore(
+                snapshot.trackIndex,
+                snapshot.positionMs,
+                playing = true,
+                snapshot.shuffle,
+                if (snapshot.repeatOne) RepeatMode.ONE else RepeatMode.OFF,
+            )
+            engine = directEngine
+        }
+        PlaybackOrchestrator.attachRestored(restored)
+        handleQueueLoad(
+            uris = snapshot.trackUris,
+            titles = snapshot.trackTitles,
+            artists = List(snapshot.trackUris.size) { album.artist },
+            index = restored.trackIndex,
+            singleQueue = snapshot.shuffle || !studio.gapless,
+            positionMs = restored.positionMs,
+        )
+        front.repeatMode = if (snapshot.repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+        restored.play()
+    }
+
+    /** Direct in-process engine for restored sessions (no binder hop). */
+    private val directEngine = object : EngineHandle {
+        override fun enginePlay(index: Int, uri: String) = handleCueTrack(index, uri)
+
+        override fun engineResume() {
+            if (front.playbackState == Player.STATE_ENDED) {
+                front.seekTo(front.currentMediaItemIndex, 0L)
+            }
+            front.play()
+        }
+
+        override fun enginePause() = front.pause()
+
+        override fun engineSeekTo(positionMs: Long) {
+            front.seekTo(positionMs.coerceAtLeast(0L))
+            PlaybackHub.publishPosition(positionMs.coerceAtLeast(0L))
+        }
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -234,38 +298,54 @@ class SonoraPlaybackService : MediaSessionService() {
     // --- Commands -----------------------------------------------------------
 
     private fun handleQueue(args: Bundle) {
-        cancelFade()
         val uris = args.getStringArrayList(PlaybackCommands.EXTRA_URIS)?.toList()
         if (uris.isNullOrEmpty()) return
-        val titles = args.getStringArrayList(PlaybackCommands.EXTRA_TITLES)?.toList()
-        val artists = args.getStringArrayList(PlaybackCommands.EXTRA_ARTISTS)?.toList()
+        handleQueueLoad(
+            uris = uris,
+            titles = args.getStringArrayList(PlaybackCommands.EXTRA_TITLES)?.toList() ?: emptyList(),
+            artists = args.getStringArrayList(PlaybackCommands.EXTRA_ARTISTS)?.toList() ?: emptyList(),
+            index = args.getInt(PlaybackCommands.EXTRA_INDEX),
+            singleQueue = args.getBoolean(PlaybackCommands.EXTRA_SINGLE),
+            positionMs = args.getLong(PlaybackCommands.EXTRA_POSITION),
+        )
+    }
+
+    private fun handleQueueLoad(
+        uris: List<String>,
+        titles: List<String>,
+        artists: List<String>,
+        index: Int,
+        singleQueue: Boolean,
+        positionMs: Long,
+    ) {
+        cancelFade()
         queueUris = uris
-        queueTitles = titles?.takeIf { it.size == uris.size } ?: List(uris.size) { "" }
-        queueArtists = artists?.takeIf { it.size == uris.size } ?: List(uris.size) { "" }
-        singleQueue = args.getBoolean(PlaybackCommands.EXTRA_SINGLE)
-        val index = args.getInt(PlaybackCommands.EXTRA_INDEX).coerceIn(uris.indices)
-        val position = args.getLong(PlaybackCommands.EXTRA_POSITION).coerceAtLeast(0L)
+        queueTitles = titles.takeIf { it.size == uris.size } ?: List(uris.size) { "" }
+        queueArtists = artists.takeIf { it.size == uris.size } ?: List(uris.size) { "" }
+        this.singleQueue = singleQueue
+        val safeIndex = index.coerceIn(uris.indices)
+        val position = positionMs.coerceAtLeast(0L)
         val generation = ++queueGeneration
         PlaybackHub.reset()
         if (singleQueue) {
-            front.setMediaItem(buildItem(uris[index], index))
+            front.setMediaItem(buildItem(uris[safeIndex], safeIndex))
         } else {
             front.setMediaItems(uris.mapIndexed { i, uri -> buildItem(uri, i) })
         }
-        front.seekToDefaultPosition(if (singleQueue) 0 else index)
+        front.seekToDefaultPosition(if (singleQueue) 0 else safeIndex)
         if (position > 0L) front.seekTo(position)
-        frontUri = uris[index]
+        frontUri = uris[safeIndex]
         PlaybackHub.publishPosition(position)
         applyVolumes()
         // Prepare waits briefly for cover art so the notification is
         // complete from the first frame; playback never waits longer.
         scope.launch(Dispatchers.IO) {
-            val bytes = artFor(uris[index])
+            val bytes = artFor(uris[safeIndex])
             withContext(Dispatchers.Main.immediate) {
                 if (generation != queueGeneration) return@withContext
                 // Never enrich a playing item: replacing it would restart
                 // the track. Slow art simply misses this track's artwork.
-                if (bytes != null && !front.isPlaying) enrichItem(index, bytes)
+                if (bytes != null && !front.isPlaying) enrichItem(safeIndex, bytes)
                 front.prepare()
             }
         }
@@ -273,18 +353,23 @@ class SonoraPlaybackService : MediaSessionService() {
             delay(ART_TIMEOUT_MS)
             if (generation == queueGeneration) front.prepare()
         }
-        resolveReplayGain(uris[index]) { gain ->
+        resolveReplayGain(uris[safeIndex]) { gain ->
             rgFront = gain
             applyVolumes()
         }
         publishFormat()
-        prefetchNextArt(index)
+        prefetchNextArt(safeIndex)
+        persistSnapshot()
     }
 
     private fun handleCue(args: Bundle) {
-        cancelFade()
         val index = args.getInt(PlaybackCommands.EXTRA_INDEX)
         val uri = args.getString(PlaybackCommands.EXTRA_URI) ?: return
+        handleCueTrack(index, uri)
+    }
+
+    private fun handleCueTrack(index: Int, uri: String) {
+        cancelFade()
         val generation = ++queueGeneration
         if (singleQueue) {
             val playing = front.playWhenReady
@@ -318,6 +403,21 @@ class SonoraPlaybackService : MediaSessionService() {
         }
         publishFormat()
         prefetchNextArt(index)
+        persistSnapshot()
+    }
+
+    /** Captures the resumable session; skipped when nothing is playing. */
+    private fun persistSnapshot() {
+        val state = PlaybackOrchestrator.state ?: return
+        val snapshot = PlaybackSnapshot.from(
+            state.album,
+            state.trackIndex,
+            PlaybackHub.positionMs.value,
+            state.isPlaying,
+            state.shuffle,
+            state.repeatMode == RepeatMode.ONE,
+        ) ?: return
+        scope.launch { SonoraPrefs.saveSnapshot(applicationContext, snapshot) }
     }
 
     private fun handleStudio(args: Bundle) {
@@ -351,9 +451,23 @@ class SonoraPlaybackService : MediaSessionService() {
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             publishPlaying()
-            if (isFront() && fade != null) {
-                if (isPlaying) back.play() else back.pause()
+            if (isFront()) {
+                if (fade != null) {
+                    if (isPlaying) back.play() else back.pause()
+                }
+                persistSnapshot()
             }
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            if (!isFront()) {
+                cancelFade()
+                return
+            }
+            // Unplayable track: let policy advance past it. A fully dead
+            // library walks to the tail and stops on its own.
+            cancelFade()
+            PlaybackHub.emitEnded()
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -368,6 +482,7 @@ class SonoraPlaybackService : MediaSessionService() {
             frontUri?.let { uri -> resolveReplayGain(uri) { rgFront = it; applyVolumes() } }
             publishFormat()
             prefetchNextArt(albumIndex)
+            persistSnapshot()
         }
 
         override fun onAudioSessionIdChanged(audioSessionId: Int) {
@@ -416,11 +531,16 @@ class SonoraPlaybackService : MediaSessionService() {
 
     // --- Crossfade ------------------------------------------------------------
 
+    private var pollTicks = 0
+
     private fun poll() {
         if (front.isPlaying) PlaybackHub.publishPosition(front.currentPosition)
         publishPlaying()
         maybeStartFade()
         tickFade()
+        // Position freshness for resume: a kill loses at most this window
+        // on top of the event-driven saves.
+        if (++pollTicks % SNAPSHOT_TICKS == 0 && front.isPlaying) persistSnapshot()
     }
 
     private fun maybeStartFade() {
@@ -491,6 +611,7 @@ class SonoraPlaybackService : MediaSessionService() {
         PlaybackHub.emitTransition(run.targetIndex)
         publishFormat()
         prefetchNextArt(run.targetIndex)
+        persistSnapshot()
     }
 
     private fun cancelFade() {

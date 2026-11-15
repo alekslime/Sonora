@@ -56,9 +56,7 @@ object PlaybackOrchestrator {
             restore(startIndex, positionMs, playing, shuffle, RepeatMode.OFF)
             this.engine = engine
         }
-        state?.engine = null
-        state = fresh
-        PlaybackHub.reset()
+        activate(fresh)
         engine.sendQueue(
             uris = album.tracks.map { it.uri!! },
             titles = album.tracks.map { it.title },
@@ -70,6 +68,21 @@ object PlaybackOrchestrator {
         engine.sendRepeatOne(false)
         engine.sendStudio(AudioStudioStore.config)
         if (playing) engine.engineResume() else engine.enginePause()
+    }
+
+    /**
+     * Attaches a service-restored session (M7 sticky resume). The engine
+     * handle is already bound; this just publishes the state and mirrors
+     * the hub into it.
+     */
+    fun attachRestored(restored: NowPlayingState) {
+        activate(restored)
+    }
+
+    private fun activate(fresh: NowPlayingState) {
+        state?.engine = null
+        state = fresh
+        PlaybackHub.reset()
         collectorJob?.cancel()
         collectorJob = scope.launch {
             launch {

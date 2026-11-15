@@ -325,7 +325,7 @@ private fun ReplayGainSection(modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth()) {
         SectionTitle("Volume normalization")
         Text(
-            "Reads ReplayGain tags (MP3, FLAC); files without tags play untouched.",
+            "Reads ReplayGain tags (MP3, FLAC, M4A); files without tags play untouched.",
             style = type.caption,
             color = colors.ivoryFaint,
         )

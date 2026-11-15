@@ -13,6 +13,7 @@ tracking.
 - M4 — Audio Studio (10-band EQ, presets, ReplayGain, gapless/crossfade, output info) + three-finger gesture system. (done)
 - M5 — Real local music: MediaStore scan, ExoPlayer engine, embedded art, real EQ/preamp/gapless, real visualizer FFT, saved prefs, demo fallback. (done)
 - M6 — Background service, notification/lock-screen controls, ReplayGain parsing, crossfade, format details. (done)
+- M7 — Polish: M4A ReplayGain, ID3 unsync, sticky resume after process death, self-calibrating visualizer. (done)
 
 ## Build
 

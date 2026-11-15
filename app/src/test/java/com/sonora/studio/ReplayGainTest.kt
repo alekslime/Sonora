@@ -21,18 +21,39 @@ class ReplayGainTest {
         (value and 0xFF).toByte(),
     )
 
-    private fun txxx(description: String, value: String, v24: Boolean): ByteArray {
+    private fun txxx(description: String, value: String, v24: Boolean, flag2: Byte = 0): ByteArray {
         val payload = byteArrayOf(0) +
             description.toByteArray(Charsets.ISO_8859_1) + byteArrayOf(0) +
             value.toByteArray(Charsets.ISO_8859_1)
         val size = if (v24) synchsafe(payload.size) else int32be(payload.size)
-        return "TXXX".toByteArray(Charsets.US_ASCII) + size + byteArrayOf(0, 0) + payload
+        return "TXXX".toByteArray(Charsets.US_ASCII) + size + byteArrayOf(0, flag2) + payload
     }
 
-    private fun id3(frames: ByteArray, v24: Boolean): ByteArray {
+    private fun id3(frames: ByteArray, v24: Boolean, tagFlags: Byte = 0): ByteArray {
         val header = "ID3".toByteArray(Charsets.US_ASCII) +
-            byteArrayOf(if (v24) 4 else 3, 0, 0) + synchsafe(frames.size)
+            byteArrayOf(if (v24) 4 else 3, 0, tagFlags) + synchsafe(frames.size)
         return header + frames
+    }
+
+    private fun box(type: String, payload: ByteArray): ByteArray {
+        return int32be(payload.size + 8) +
+            type.toByteArray(Charsets.US_ASCII) + payload
+    }
+
+    private fun freeform(
+        name: String,
+        value: String,
+        mean: String = "com.apple.iTunes",
+    ): ByteArray {
+        val meanBox = box("mean", ByteArray(4) + mean.toByteArray(Charsets.UTF_8))
+        val nameBox = box("name", ByteArray(4) + name.toByteArray(Charsets.UTF_8))
+        val dataBox = box("data", byteArrayOf(0, 0, 0, 1) + ByteArray(4) + value.toByteArray(Charsets.UTF_8))
+        return box("----", meanBox + nameBox + dataBox)
+    }
+
+    private fun moov(vararg items: ByteArray): ByteArray {
+        val ilst = box("ilst", items.fold(ByteArray(0)) { acc, item -> acc + item })
+        return box("moov", box("udta", box("meta", ByteArray(4) + ilst)))
     }
 
     private fun le32(value: Int) = byteArrayOf(
@@ -130,6 +151,123 @@ class ReplayGainTest {
         assertEquals(null, ReplayGain.parseId3v2("fLaCjunkdata".toByteArray()))
         val tag = id3(txxx("replaygain_track_gain", "-5 dB", v24 = false), v24 = false)
         assertEquals(null, ReplayGain.parseId3v2(tag.copyOf(15)))
+    }
+
+    @Test
+    fun deunsyncStripsArtifacts() {
+        assertEquals(
+            "aÿb",
+            ReplayGain.deunsync("a".toByteArray() + byteArrayOf(0xFF.toByte(), 0x00) + "b".toByteArray())
+                .toString(Charsets.ISO_8859_1),
+        )
+        // Lone 0xFF and trailing bytes pass through untouched.
+        assertEquals(
+            listOf(0xFF, 0x41),
+            ReplayGain.deunsync(byteArrayOf(0xFF.toByte(), 0x41)).toList().map { it.toInt() and 0xFF },
+        )
+        assertEquals(0, ReplayGain.deunsync(ByteArray(0)).size)
+    }
+
+    @Test
+    fun ignoresUnsyncArtifactsWithoutTheFlag() {
+        // An artifact 0x00 truncates the description scan, so without the
+        // flag the key never matches — no false positive.
+        val stored = byteArrayOf(0) +
+            "replaygain_track_ga".toByteArray(Charsets.ISO_8859_1) +
+            byteArrayOf(0xFF.toByte(), 0x00) +
+            "in".toByteArray(Charsets.ISO_8859_1) + byteArrayOf(0) +
+            "-5 dB".toByteArray(Charsets.ISO_8859_1)
+        val unflagged = "TXXX".toByteArray(Charsets.US_ASCII) +
+            synchsafe(stored.size) + byteArrayOf(0, 0) + stored
+        assertEquals(null, ReplayGain.parseId3v2(id3(unflagged, v24 = true)))
+    }
+
+    @Test
+    fun tagLevelUnsyncPreservesFrameBoundaries() {
+        // First frame's size field (255) carries an artifact byte; without
+        // tag-level deunsync the second frame misaligns and is lost.
+        val paddedValue = "-5 dB" + " ".repeat(227) // 1+21+1+232 = 255 payload bytes
+        val payload = byteArrayOf(0) +
+            "replaygain_track_gain".toByteArray(Charsets.ISO_8859_1) + byteArrayOf(0) +
+            paddedValue.toByteArray(Charsets.ISO_8859_1)
+        assertEquals(255, payload.size)
+        val first = "TXXX".toByteArray(Charsets.US_ASCII) +
+            byteArrayOf(0, 0, 0, 0xFF.toByte(), 0x00) + byteArrayOf(0, 0) + payload
+        val second = txxx("replaygain_album_gain", "-6 dB", v24 = false)
+        val withFlag = ReplayGain.parseId3v2(id3(first + second, v24 = false, tagFlags = 0x80.toByte()))!!
+        assertEquals(-5f, withFlag.trackGainDb!!, 0.001f)
+        assertEquals(-6f, withFlag.albumGainDb!!, 0.001f)
+        // Without the flag the artifact shifts every boundary: the flag
+        // byte misreads as the encoding and both frames are lost.
+        assertEquals(null, ReplayGain.parseId3v2(id3(first + second, v24 = false)))
+    }
+
+    // --- MP4 ---------------------------------------------------------------
+
+    @Test
+    fun readsMp4FreeformGains() {
+        val tags = ReplayGain.parseMp4Moov(
+            moov(
+                freeform("REPLAYGAIN_TRACK_GAIN", "-4.50 dB"),
+                freeform("REPLAYGAIN_ALBUM_GAIN", "-6.00 dB"),
+                freeform("REPLAYGAIN_TRACK_PEAK", "0.95"),
+                freeform("TITLE", "Something"),
+            ),
+        )!!
+        assertEquals(-4.5f, tags.trackGainDb!!, 0.001f)
+        assertEquals(-6f, tags.albumGainDb!!, 0.001f)
+        assertEquals(0.95f, tags.trackPeak!!, 0.001f)
+    }
+
+    @Test
+    fun ignoresForeignFreeformMean() {
+        val tags = ReplayGain.parseMp4Moov(moov(freeform("REPLAYGAIN_TRACK_GAIN", "-3 dB")))
+        assertEquals(-3f, tags!!.trackGainDb!!, 0.001f)
+        assertEquals(
+            null,
+            ReplayGain.parseMp4Moov(
+                moov(freeform("REPLAYGAIN_TRACK_GAIN", "-3 dB", mean = "com.example")),
+            ),
+        )
+    }
+
+    @Test
+    fun rejectsMoovWithoutRgPath() {
+        assertEquals(null, ReplayGain.parseMp4Moov(ByteArray(0)))
+        assertEquals(null, ReplayGain.parseMp4Moov(box("mdat", ByteArray(16))))
+        assertEquals(null, ReplayGain.parseMp4Moov(box("moov", box("udta", ByteArray(0)))))
+        assertEquals(null, ReplayGain.parseMp4Moov(moov()))
+        assertEquals(null, ReplayGain.parseMp4Moov(moov(freeform("TITLE", "X"))))
+        val full = moov(freeform("REPLAYGAIN_TRACK_GAIN", "-3 dB"))
+        assertEquals(null, ReplayGain.parseMp4Moov(full.copyOf(40)))
+    }
+
+    @Test
+    fun readsLargeAndOpenEndedBoxes() {
+        // Largesize udta (size field 1 + u64).
+        val inner = box("meta", ByteArray(4) + box("ilst", freeform("REPLAYGAIN_TRACK_GAIN", "-2 dB")))
+        val largeSize = (inner.size + 16).toLong()
+        val udtaLarge = int32be(1) + "udta".toByteArray(Charsets.US_ASCII) +
+            byteArrayOf(
+                (largeSize shr 56).toByte(), (largeSize shr 48).toByte(),
+                (largeSize shr 40).toByte(), (largeSize shr 32).toByte(),
+                (largeSize shr 24).toByte(), (largeSize shr 16).toByte(),
+                (largeSize shr 8).toByte(), largeSize.toByte(),
+            ) + inner
+        val tags = ReplayGain.parseMp4Moov(box("moov", udtaLarge))!!
+        assertEquals(-2f, tags.trackGainDb!!, 0.001f)
+        // Open-ended moov (size field 0 runs to the buffer end).
+        val openPayload = box("udta", box("meta", ByteArray(4) + box("ilst", freeform("REPLAYGAIN_TRACK_GAIN", "-2 dB"))))
+        val open = int32be(0) + "moov".toByteArray(Charsets.US_ASCII) + openPayload
+        assertEquals(-2f, ReplayGain.parseMp4Moov(open)!!.trackGainDb!!, 0.001f)
+    }
+
+    @Test
+    fun detectsMp4Heads() {
+        val ftyp = int32be(24) + "ftyp".toByteArray(Charsets.US_ASCII) + ByteArray(16)
+        assertEquals(true, ReplayGain.isMp4Head(ftyp))
+        assertEquals(false, ReplayGain.isMp4Head("ID3\u0004\u0000\u0000\u0000".toByteArray()))
+        assertEquals(false, ReplayGain.isMp4Head(ByteArray(4)))
     }
 
     // --- FLAC / Vorbis -----------------------------------------------------

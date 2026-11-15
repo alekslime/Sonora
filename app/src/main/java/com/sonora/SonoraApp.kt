@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -20,7 +21,9 @@ import androidx.compose.ui.Modifier
 import com.sonora.browse.BrowseScreen
 import com.sonora.data.MockLibrary
 import com.sonora.detail.AlbumDetailScreen
+import com.sonora.liquid.LiquidOverlay
 import com.sonora.nowplaying.NowPlayingScreen
+import com.sonora.nowplaying.NowPlayingState
 import com.sonora.shelf.ShelfScreen
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.SonoraMotion
@@ -73,6 +76,8 @@ fun SonoraApp() {
         var stack by rememberSaveable(stateSaver = StackSaver) {
             mutableStateOf<List<Destination>>(listOf(Destination.Shelf))
         }
+        var liquidOpen by rememberSaveable { mutableStateOf(false) }
+        var session by remember { mutableStateOf<NowPlayingState?>(null) }
         val current = stack.last()
         fun push(destination: Destination) {
             stack = stack + destination
@@ -82,8 +87,8 @@ fun SonoraApp() {
         }
         BackHandler(enabled = stack.size > 1) { pop() }
 
-        Box(Modifier.fillMaxSize().background(colors.obsidian)) {
-            AnimatedContent(
+            Box(Modifier.fillMaxSize().background(colors.obsidian)) {
+                AnimatedContent(
                 targetState = current,
                 transitionSpec = {
                     (fadeIn(tween(SonoraMotion.SCREEN_MILLIS)) + scaleIn(tween(SonoraMotion.SCREEN_MILLIS), 0.985f))
@@ -121,10 +126,18 @@ fun SonoraApp() {
                             startTrackIndex = destination.startTrackIndex,
                             autoplay = true,
                             onBack = { pop() },
+                            onOpenLiquid = { liquidOpen = true },
+                            onSession = { session = it },
                         )
                     }
                 }
             }
-        }
+                if (liquidOpen) {
+                    LiquidOverlay(
+                        session = session,
+                        onExit = { liquidOpen = false },
+                    )
+                }
+            }
     }
 }

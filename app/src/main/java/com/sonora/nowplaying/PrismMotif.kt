@@ -1,10 +1,16 @@
 package com.sonora.nowplaying
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -29,7 +35,12 @@ fun mockEnergy(positionMs: Long, playing: Boolean): Float {
  * It breathes subtly with [energy] and never competes with the record.
  */
 @Composable
-fun PrismMotif(size: Dp, energy: Float, modifier: Modifier = Modifier) {
+fun PrismMotif(
+    size: Dp,
+    energy: Float,
+    onTap: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val spectrum = remember {
         listOf(
             Color(0xFFE2574C),
@@ -43,6 +54,14 @@ fun PrismMotif(size: Dp, energy: Float, modifier: Modifier = Modifier) {
     Canvas(
         modifier
             .size(size)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Button,
+                onClickLabel = "Open Liquid visualizer",
+                onClick = onTap,
+            )
             .graphicsLayer {
                 val pulse = 1f + 0.04f * energy
                 scaleX = pulse

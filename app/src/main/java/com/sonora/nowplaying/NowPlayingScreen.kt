@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -30,14 +31,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,6 +62,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -67,9 +72,12 @@ import androidx.compose.ui.unit.dp
 import com.sonora.data.Album
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.toMinSec
+import com.sonora.liquid.LiquidConfigStore
+import com.sonora.liquid.LiquidSettingsSheet
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
 import com.sonora.theme.SonoraMotion
+import com.sonora.theme.SonoraShapes
 import kotlin.math.roundToInt
 
 /**
@@ -78,12 +86,15 @@ import kotlin.math.roundToInt
  * immediately understandable transport controls. Playback is simulated
  * (see [NowPlayingState]); the audio engine arrives in M5.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NowPlayingScreen(
     album: Album,
     startTrackIndex: Int,
     autoplay: Boolean,
     onBack: () -> Unit,
+    onOpenLiquid: () -> Unit,
+    onSession: (NowPlayingState) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalSonoraColors.current
@@ -96,8 +107,10 @@ fun NowPlayingScreen(
     var persistedPlaying by rememberSaveable(album.id, startTrackIndex) { mutableStateOf(autoplay) }
     LaunchedEffect(state) {
         state.restore(persistedTrack, persistedPosition, persistedPlaying)
+        onSession(state)
         state.ticker()
     }
+    var liquidSheetOpen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(state.trackIndex, state.positionMs, state.isPlaying) {
         persistedTrack = state.trackIndex
         persistedPosition = state.positionMs
@@ -123,6 +136,7 @@ fun NowPlayingScreen(
                 Stage(
                     state = state,
                     cueLift = cue.value,
+                    onOpenLiquid = onOpenLiquid,
                     modifier = Modifier
                         .weight(1.1f)
                         .fillMaxHeight(),
@@ -130,6 +144,7 @@ fun NowPlayingScreen(
                 InfoBlock(
                     state = state,
                     onBack = onBack,
+                    onOpenLiquidSettings = { liquidSheetOpen = true },
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
@@ -143,6 +158,7 @@ fun NowPlayingScreen(
                 Stage(
                     state = state,
                     cueLift = cue.value,
+                    onOpenLiquid = onOpenLiquid,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
@@ -150,10 +166,20 @@ fun NowPlayingScreen(
                 InfoBlock(
                     state = state,
                     onBack = null,
+                    onOpenLiquidSettings = { liquidSheetOpen = true },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 28.dp),
                 )
+            }
+        }
+        if (liquidSheetOpen) {
+            ModalBottomSheet(
+                onDismissRequest = { liquidSheetOpen = false },
+                containerColor = colors.charcoal,
+                contentColor = colors.ivory,
+            ) {
+                LiquidSettingsSheet()
             }
         }
     }
@@ -178,7 +204,12 @@ private fun TopBar(onBack: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun InfoBlock(state: NowPlayingState, onBack: (() -> Unit)?, modifier: Modifier = Modifier) {
+private fun InfoBlock(
+    state: NowPlayingState,
+    onBack: (() -> Unit)?,
+    onOpenLiquidSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -240,6 +271,8 @@ private fun InfoBlock(state: NowPlayingState, onBack: (() -> Unit)?, modifier: M
             onNext = { state.next() },
         )
         Spacer(Modifier.height(8.dp))
+        LiquidRow(onOpen = onOpenLiquidSettings)
+        Spacer(Modifier.height(8.dp))
         Text(
             "Simulated playback — real audio arrives in M5.",
             style = type.caption,
@@ -251,9 +284,35 @@ private fun InfoBlock(state: NowPlayingState, onBack: (() -> Unit)?, modifier: M
 }
 
 @Composable
+private fun LiquidRow(onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = LocalSonoraColors.current
+    val type = LocalSonoraTypography.current
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(SonoraShapes.small)
+            .clickable(role = Role.Button, onClickLabel = "Liquid visualizer settings", onClick = onOpen)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text("Liquid".uppercase(), style = type.labelCaps, color = colors.ivoryDim)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            LiquidConfigStore.config.preset.label,
+            style = type.caption,
+            color = colors.amber,
+        )
+        Spacer(Modifier.width(4.dp))
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = colors.ivoryFaint, modifier = Modifier.size(16.dp))
+    }
+}
+
+@Composable
 private fun Stage(
     state: NowPlayingState,
     cueLift: Float,
+    onOpenLiquid: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalSonoraColors.current
@@ -321,6 +380,7 @@ private fun Stage(
             PrismMotif(
                 size = 88.dp,
                 energy = mockEnergy(state.positionMs, state.isPlaying),
+                onTap = onOpenLiquid,
                 modifier = Modifier.offset { IntOffset(prismLeft.roundToInt(), prismTop.roundToInt()) },
             )
         }

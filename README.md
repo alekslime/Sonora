@@ -8,7 +8,7 @@ tracking.
 
 - M0 — Brand and design system. (done)
 - M1 — Shelf prototype (mock library, perspective stack, album detail). (done)
-- M2 — Now Playing prototype (vinyl, tonearm, prism, simulated playback). (done)
+- M2 — Now Playing: clean player (artwork, shuffle/repeat, simulated playback). (done)
 - M3 — Liquid visualizer (AGSL shader + Canvas fallback, presets, touch-to-exit). (done)
 - M3 — Liquid visualizer prototype (AGSL shader + Canvas fallback, presets, touch-to-exit). (done)
 - M4 — Audio Studio and gestures (10-band EQ, playback options, output info, three-finger state machine). (done)

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -59,7 +60,8 @@ fun AlbumDetailScreen(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(colors.obsidian, colors.abyss))),
+            .background(Brush.verticalGradient(listOf(colors.obsidian, colors.abyss)))
+            .systemBarsPadding(),
     ) {
         item {
             DetailHeader(label = album.label, onBack = onBack)
@@ -72,7 +74,7 @@ fun AlbumDetailScreen(
                     .padding(horizontal = 24.dp)
                     .aspectRatio(1f)
                     .clip(SonoraShapes.medium)
-                    .background(Color(0xFF1A1A1E)),
+                    .background(Color(0xFF161616)),
                 contentAlignment = Alignment.Center,
             ) {
                 if (art != null) {
@@ -96,7 +98,7 @@ fun AlbumDetailScreen(
             Column(Modifier.padding(horizontal = 24.dp)) {
                 Text(album.title, style = type.display, color = colors.ivory)
                 Spacer(Modifier.height(4.dp))
-                Text(album.artist, style = type.title, color = colors.amber)
+                Text(album.artist, style = type.title, color = colors.ivoryDim)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "${album.displayYear}  •  ${album.tracks.size} tracks  •  ${album.totalDurationMs.toMinSec()}",
@@ -136,7 +138,7 @@ private fun DetailHeader(label: String, onBack: () -> Unit, modifier: Modifier =
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) {
-            Icon(Icons.Filled.ArrowBack, contentDescription = "Back to shelf", tint = colors.ivory)
+            Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = colors.ivory)
         }
         Spacer(Modifier.width(4.dp))
         Text(label.uppercase(), style = type.labelCaps, color = colors.ivoryFaint)

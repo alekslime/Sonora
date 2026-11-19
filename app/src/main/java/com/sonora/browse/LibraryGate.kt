@@ -9,12 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -58,7 +60,7 @@ fun EmptyLibraryScreen(
 ) {
     GateScaffold(
         kicker = "No music found",
-        title = "The shelf is empty",
+        title = "Your library is empty",
         body = "No playable audio turned up on this device. Add some music " +
             "files, then rescan — or explore the demo meanwhile.",
         primaryLabel = "Rescan",
@@ -86,6 +88,7 @@ private fun GateScaffold(
         modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(colors.obsidian, colors.abyss)))
+            .systemBarsPadding()
             .padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -109,12 +112,12 @@ private fun GateScaffold(
         Text(
             primaryLabel.uppercase(),
             style = type.labelCaps,
-            color = colors.obsidian,
+            color = Color.Black,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(SonoraShapes.small)
-                .background(colors.amber)
+                .clip(SonoraShapes.large)
+                .background(Color.White)
                 .clickable(role = Role.Button, onClick = onPrimary)
                 .padding(vertical = 14.dp),
         )

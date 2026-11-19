@@ -1,6 +1,5 @@
 package com.sonora.browse
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -23,12 +23,10 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -59,23 +57,22 @@ private enum class SortMode(val label: String) {
 }
 
 /**
- * M1 compact browsing: search, sort and list/grid views over the library,
- * so large collections stay navigable without the spatial shelf.
+ * Library home: search, sort and list/grid views over the collection.
+ * In demo mode a pill offers the way back to the on-device library.
  */
 @Composable
 fun BrowseScreen(
     albums: List<Album>,
     onOpenAlbum: (Album) -> Unit,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     demo: Boolean = false,
+    onExitDemo: (() -> Unit)? = null,
 ) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     var query by rememberSaveable { mutableStateOf("") }
     var sort by rememberSaveable { mutableStateOf(SortMode.TITLE) }
     var grid by rememberSaveable { mutableStateOf(false) }
-    BackHandler(onBack = onBack)
 
     val visible = albums
         .filter {
@@ -94,25 +91,36 @@ fun BrowseScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(colors.obsidian, colors.abyss))),
+            .background(Brush.verticalGradient(listOf(colors.obsidian, colors.abyss)))
+            .systemBarsPadding(),
     ) {
-        Row(
+        Column(
             Modifier
                 .fillMaxWidth()
-                .padding(start = 8.dp, end = 20.dp, top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 4.dp),
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Filled.ArrowBack, contentDescription = "Back to shelf", tint = colors.ivory)
+            Text("Library", style = type.display, color = colors.ivory)
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (demo) "Demo  •  ${visible.size} records" else "${visible.size} records  •  on this device",
+                    style = type.caption,
+                    color = colors.ivoryDim,
+                )
+                if (demo && onExitDemo != null) {
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "Use my music".uppercase(),
+                        style = type.labelCaps,
+                        color = colors.ivory,
+                        modifier = Modifier
+                            .clip(SonoraShapes.small)
+                            .clickable(role = Role.Button, onClickLabel = "Use my music library", onClick = onExitDemo)
+                            .background(Color.White.copy(alpha = 0.12f))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
             }
-            Spacer(Modifier.width(4.dp))
-            Text("Browse".uppercase(), style = type.labelCaps, color = colors.ivory)
-            Spacer(Modifier.weight(1f))
-            Text(
-                if (demo) "Demo  •  ${visible.size} records" else "${visible.size} records",
-                style = type.caption,
-                color = colors.ivoryFaint,
-            )
         }
 
         TextField(
@@ -121,18 +129,18 @@ fun BrowseScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 8.dp),
-            placeholder = { Text("Search title or artist", style = type.body) },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            placeholder = { Text("Search title or artist", style = type.body, color = colors.ivoryFaint) },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = colors.ivoryDim) },
             singleLine = true,
-            shape = SonoraShapes.small,
+            shape = SonoraShapes.large,
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = colors.charcoal,
-                unfocusedContainerColor = colors.charcoal,
+                focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
                 focusedTextColor = colors.ivory,
                 unfocusedTextColor = colors.ivory,
-                cursorColor = colors.amber,
+                cursorColor = colors.ivory,
             ),
         )
 
@@ -149,10 +157,10 @@ fun BrowseScreen(
                     onClick = { sort = mode },
                     label = { Text(mode.label, style = type.caption) },
                     colors = FilterChipDefaults.filterChipColors(
-                        containerColor = Color.Transparent,
+                        containerColor = Color.White.copy(alpha = 0.06f),
                         labelColor = colors.ivoryDim,
-                        selectedContainerColor = colors.amber.copy(alpha = 0.22f),
-                        selectedLabelColor = colors.ivory,
+                        selectedContainerColor = Color.White,
+                        selectedLabelColor = Color.Black,
                     ),
                 )
             }
@@ -202,7 +210,7 @@ private fun ViewToggle(grid: Boolean, onToggle: (Boolean) -> Unit) {
             Text(
                 label.uppercase(),
                 style = type.labelCaps,
-                color = if (active) colors.amber else colors.ivoryFaint,
+                color = if (active) colors.ivory else colors.ivoryFaint,
                 modifier = Modifier
                     .clip(SonoraShapes.extraSmall)
                     .clickable(role = Role.Tab) { onToggle(value) }

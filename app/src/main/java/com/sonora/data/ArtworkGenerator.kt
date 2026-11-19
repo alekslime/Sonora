@@ -15,7 +15,7 @@ import kotlin.random.Random
 
 /**
  * Procedural M1 cover art. Each album seed deterministically yields one of
- * six compositions in a rich, saturated palette so the dark shelf reads the
+ * six compositions in a rich, saturated palette so the dark library reads the
  * way the spec intends: artwork supplies the color.
  *
  * Runs on a background dispatcher; callers must never invoke it on the UI

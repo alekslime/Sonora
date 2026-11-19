@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,7 +74,7 @@ fun PrototypePlaybackControls(
         }
         Spacer(Modifier.height(10.dp))
         Text(
-            "Play and Shuffle are live — the queue list is still to come.",
+            "Play and Shuffle are live — the full queue is in Now Playing.",
             style = type.caption,
             color = colors.ivoryFaint,
             textAlign = TextAlign.Center,
@@ -103,8 +104,10 @@ private fun PrototypeAction(
             modifier = modifier,
             contentPadding = buttonPadding,
             colors = ButtonDefaults.buttonColors(
-                disabledContainerColor = colors.amber.copy(alpha = 0.28f),
-                disabledContentColor = colors.ivory.copy(alpha = 0.75f),
+                containerColor = colors.ivory,
+                contentColor = Color.Black,
+                disabledContainerColor = colors.ivory.copy(alpha = 0.28f),
+                disabledContentColor = Color.Black.copy(alpha = 0.75f),
             ),
         ) {
             Icon(icon, contentDescription = null)
@@ -118,6 +121,8 @@ private fun PrototypeAction(
             modifier = modifier,
             contentPadding = buttonPadding,
             colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = colors.graphite,
+                contentColor = colors.ivory,
                 disabledContentColor = colors.ivoryDim.copy(alpha = 0.7f),
             ),
         ) {

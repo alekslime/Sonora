@@ -98,4 +98,71 @@ class SpectrumAnalyzerTest {
         assertEquals(0f, frame.bands.mid, 0.001f)
         assertTrue(frame.bands.treble > 0f)
     }
+
+    @Test
+    fun spectrumMapsEnergyToItsBin() {
+        // 32 FFT bins; bin 2 carries all the energy. Quadratic spacing
+        // puts it in output bin 2, peaking alone at full scale.
+        val fft = ByteArray(64)
+        fft[4] = 100
+        val out = SpectrumAnalyzer.fftToSpectrum(fft, 8)
+        assertEquals(8, out.size)
+        assertEquals(1f, out.maxOrNull()!!, 0.001f)
+        assertEquals(1f, out[2], 0.001f)
+        assertEquals(0f, out[0], 0.001f)
+        assertEquals(0f, out[1], 0.001f)
+        assertEquals(0f, out[7], 0.001f)
+    }
+
+    @Test
+    fun spectrumSilenceStaysSilent() {
+        val out = SpectrumAnalyzer.fftToSpectrum(ByteArray(64), 8)
+        assertTrue(out.all { it == 0f })
+    }
+
+    @Test
+    fun spectrumDegradesOnTinyInput() {
+        assertEquals(4, SpectrumAnalyzer.fftToSpectrum(ByteArray(4), 4).size)
+        assertTrue(SpectrumAnalyzer.fftToSpectrum(ByteArray(4), 4).all { it == 0f })
+        assertEquals(0, SpectrumAnalyzer.fftToSpectrum(ByteArray(64), 0).size)
+    }
+
+    @Test
+    fun spectrumStaysBounded() {
+        val out = SpectrumAnalyzer.fftToSpectrum(ByteArray(1024) { 127 }, 64)
+        assertEquals(64, out.size)
+        assertTrue(out.all { it in 0f..1f })
+    }
+
+    @Test
+    fun waveformCentersAndScales() {
+        // Silence, full negative, full positive.
+        val bytes = byteArrayOf(128.toByte(), 0.toByte(), 255.toByte())
+        val out = SpectrumAnalyzer.waveformToFloat(bytes, 3)
+        assertEquals(0f, out[0], 0.001f)
+        assertEquals(-1f, out[1], 0.001f)
+        assertEquals(0.992f, out[2], 0.01f)
+    }
+
+    @Test
+    fun waveformResamplesBothDirections() {
+        val up = SpectrumAnalyzer.waveformToFloat(byteArrayOf(0.toByte(), 255.toByte()), 5)
+        assertEquals(5, up.size)
+        assertEquals(-1f, up.first(), 0.001f)
+        assertEquals(0.992f, up.last(), 0.01f)
+        assertTrue(up[2] in -0.1f..0.1f)
+        val down = SpectrumAnalyzer.waveformToFloat(ByteArray(100) { 128.toByte() }, 4)
+        assertEquals(4, down.size)
+        assertTrue(down.all { it == 0f })
+    }
+
+    @Test
+    fun waveformDegradesOnEmpty() {
+        // Empty input yields flat zeros of the requested size, matching
+        // the spectrum contract, so renderers always draw a flat line.
+        assertEquals(8, SpectrumAnalyzer.waveformToFloat(ByteArray(0), 8).size)
+        assertTrue(SpectrumAnalyzer.waveformToFloat(ByteArray(0), 8).all { it == 0f })
+        assertEquals(0, SpectrumAnalyzer.waveformToFloat(ByteArray(8), 0).size)
+        assertEquals(1, SpectrumAnalyzer.waveformToFloat(byteArrayOf(0.toByte()), 1).size)
+    }
 }

@@ -498,7 +498,7 @@ private fun ObsidianArtwork(
     val art = rememberAlbumArtwork(album)
     Box(
         modifier
-            .shadow(28.dp, ArtShape, ambientColor = Color.Black, spotColor = Color.Black)
+            .shadow(12.dp, ArtShape, ambientColor = Color.Black, spotColor = Color.Black)
             .clip(ArtShape)
             .background(Color(0xFF1A1A1A))
             .clickable(
@@ -509,12 +509,16 @@ private fun ObsidianArtwork(
             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
             .drawWithContent {
                 drawContent()
-                // The cover dissolves into the backdrop along its base.
+                // True alpha dissolve: the card's own pixels fade out,
+                // so the bottom corners melt into the backdrop instead
+                // of just darkening. DstIn on an offscreen layer keeps
+                // every pixel where the mask is opaque and erases where
+                // it is transparent — no black overlay involved.
                 drawRect(
                     Brush.verticalGradient(
                         0f to Color.Black,
-                        0.66f to Color.Black,
-                        0.85f to Color.Black.copy(alpha = 0.45f),
+                        0.55f to Color.Black,
+                        0.78f to Color.Black.copy(alpha = 0.5f),
                         1f to Color.Transparent,
                     ),
                     blendMode = BlendMode.DstIn,

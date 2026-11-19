@@ -14,6 +14,8 @@ tracking.
 - M5 — Real local music: MediaStore scan, ExoPlayer engine, embedded art, real EQ/preamp/gapless, real visualizer FFT, saved prefs, demo fallback. (done)
 - M6 — Background service, notification/lock-screen controls, ReplayGain parsing, crossfade, format details. (done)
 - M7 — Polish: M4A ReplayGain, ID3 unsync, sticky resume after process death, self-calibrating visualizer. (done)
+- M8 — Obsidian glass Now Playing (blurred-art backdrop, glass transport, queue sheet, liked songs); Shelf retired, Browse is home. (done)
+- M9 — Edge-to-edge player, math visualizer show (Mandelbrot, ribbons, polar scope, star with crossfades and swipe), Obsidian Disc icon. (done)
 
 ## Build
 
@@ -39,9 +41,8 @@ Run unit tests:
 
 - `app/src/main/java/com/sonora/theme/` — M0 design system.
 - `app/src/main/java/com/sonora/data/` — models, mock + MediaStore libraries, artwork pipeline, prefs.
-- `app/src/main/java/com/sonora/shelf/` — Shelf layout, sleeves, state.
 - `app/src/main/java/com/sonora/detail/` — album detail.
-- `app/src/main/java/com/sonora/nowplaying/` — Now Playing screen and transport state.
+- `app/src/main/java/com/sonora/nowplaying/` — Obsidian glass Now Playing, queue sheet, options sheet, liked songs, transport state.
 - `app/src/main/java/com/sonora/playback/` — M6 background service, controller bridge, orchestrator, crossfade, formats.
 - `app/src/main/java/com/sonora/liquid/` — Liquid visualizer, presets, mock + real spectrum.
 - `app/src/main/java/com/sonora/studio/` — Audio Studio config, screen, M5 effects bridge.

@@ -16,6 +16,7 @@ tracking.
 - M7 — Polish: M4A ReplayGain, ID3 unsync, sticky resume after process death, self-calibrating visualizer. (done)
 - M8 — Obsidian glass Now Playing (blurred-art backdrop, glass transport, queue sheet, liked songs); Shelf retired, Browse is home. (done)
 - M9 — Edge-to-edge player, math visualizer show (Mandelbrot, ribbons, polar scope, star with crossfades and swipe), Obsidian Disc icon. (done)
+- M10 — WMP-style signal visualizer (Waves, Bars, Scope, Storm on live waveform+spectrum), self-healing analyzer, signal readout. (done)
 
 ## Build
 

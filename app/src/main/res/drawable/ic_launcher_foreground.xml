@@ -4,20 +4,18 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Stylized record groove ring in analog amber. -->
+    <!-- Obsidian Disc: white play disc with a glass highlight and an orbit ring. -->
+    <path
+        android:fillColor="#FFF7F6FF"
+        android:fillType="evenOdd"
+        android:pathData="M54,28 a26,26 0 1,1 0,52 a26,26 0 1,1 0,-52 Z M54,48 a6,6 0 1,1 0,12 a6,6 0 1,1 0,-12 Z" />
+    <path
+        android:fillColor="#59FFFFFF"
+        android:pathData="M36,42 a10,5.5 0 1,0 20,0 a10,5.5 0 1,0 -20,0 Z" />
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#FFE0A458"
-        android:strokeWidth="7"
+        android:strokeColor="#B3F7F6FF"
+        android:strokeWidth="2.5"
         android:strokeLineCap="round"
-        android:pathData="M54,22 a32,32 0 1,1 -22.6,9.4" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFE0A458"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:pathData="M54,34 a20,20 0 1,0 14.1,5.9" />
-    <path
-        android:fillColor="#FFF2EDE3"
-        android:pathData="M54,49 a5,5 0 1,1 0,10 a5,5 0 1,1 0,-10 Z" />
+        android:pathData="M54,21 A33,33 0 1,1 25.4,37.5" />
 </vector>

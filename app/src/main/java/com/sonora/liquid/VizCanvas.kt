@@ -16,22 +16,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 
 /**
- * M9 show canvas. Runs the frame clock (shared by every equation so
- * transitions stay seamless), follows the analyzer readings between
- * captures for kick-fast response, and crossfades the outgoing and
- * incoming equations on a GPU-composited layer stack.
+ * M9 show canvas, M10 signal. Runs the frame clock (shared by every
+ * equation so transitions stay seamless), follows the analyzer
+ * readings between captures for kick-fast response, and crossfades
+ * the outgoing and incoming equations on GPU-composited layers. Band
+ * levels are smoothed; the waveform and spectrum pass through raw so
+ * the picture never lags the music.
  */
 @Composable
 fun VizCanvas(
     show: VizShow,
-    bands: Bands,
+    signal: VizSignal,
     config: LiquidConfig,
     motionEnabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     var timeSec by remember { mutableFloatStateOf(0f) }
-    var smooth by remember { mutableStateOf(bands) }
-    val latestBands by rememberUpdatedState(bands)
+    var smooth by remember(signal.bands) { mutableStateOf(signal.bands) }
+    val latestBands by rememberUpdatedState(signal.bands)
     LaunchedEffect(motionEnabled) {
         var last = withFrameNanos { it }
         while (true) {
@@ -45,11 +47,12 @@ fun VizCanvas(
             show.frame(dtMs)
         }
     }
+    val render = remember(signal, smooth) { signal.copy(bands = smooth) }
     val outgoing = show.outgoing
     Box(modifier.fillMaxSize()) {
         VizModeLayer(
             mode = outgoing ?: show.current,
-            bands = smooth,
+            signal = render,
             config = config,
             timeSec = timeSec,
             alpha = 1f,
@@ -57,7 +60,7 @@ fun VizCanvas(
         if (outgoing != null) {
             VizModeLayer(
                 mode = show.current,
-                bands = smooth,
+                signal = render,
                 config = config,
                 timeSec = timeSec,
                 alpha = show.fade,
@@ -69,7 +72,7 @@ fun VizCanvas(
 @Composable
 private fun VizModeLayer(
     mode: VizMode,
-    bands: Bands,
+    signal: VizSignal,
     config: LiquidConfig,
     timeSec: Float,
     alpha: Float,
@@ -79,22 +82,29 @@ private fun VizModeLayer(
         .fillMaxSize()
         .graphicsLayer { this.alpha = alpha }
     when (mode) {
-        VizMode.MANDELBROT -> MandelbrotViz(
-            bands = bands,
+        VizMode.WAVES -> Canvas(layer) {
+            drawWaves(signal, config.preset, timeSec, config.intensity, config.quality)
+        }
+        VizMode.BARS -> BarsViz(
+            signal = signal,
             preset = config.preset,
             timeSec = timeSec,
             intensity = config.intensity,
-            quality = config.quality,
             modifier = layer,
         )
-        VizMode.RIBBONS -> Canvas(layer) {
-            drawRibbons(bands, config.preset, timeSec, config.intensity, config.quality)
-        }
-        VizMode.POLAR -> Canvas(layer) {
-            drawPolar(bands, config.preset, timeSec, config.intensity, config.quality)
-        }
-        VizMode.STAR -> Canvas(layer) {
-            drawStar(bands, config.preset, timeSec, config.intensity, config.quality)
-        }
+        VizMode.SCOPE -> ScopeViz(
+            signal = signal,
+            preset = config.preset,
+            timeSec = timeSec,
+            intensity = config.intensity,
+            modifier = layer,
+        )
+        VizMode.STORM -> StormViz(
+            signal = signal,
+            preset = config.preset,
+            timeSec = timeSec,
+            intensity = config.intensity,
+            modifier = layer,
+        )
     }
 }

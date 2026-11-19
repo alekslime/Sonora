@@ -35,7 +35,7 @@ class VizEngineTest {
 
     @Test
     fun showStepsThroughEveryModeAndWraps() {
-        val show = VizShow(VizMode.MANDELBROT, autoCycle = false)
+        val show = VizShow(VizMode.WAVES, autoCycle = false)
         val seen = mutableListOf(show.current)
         repeat(VizMode.entries.size) {
             show.next()
@@ -45,20 +45,20 @@ class VizEngineTest {
         }
         assertEquals(
             listOf(
-                VizMode.MANDELBROT, VizMode.RIBBONS, VizMode.POLAR,
-                VizMode.STAR, VizMode.MANDELBROT,
+                VizMode.WAVES, VizMode.BARS, VizMode.SCOPE,
+                VizMode.STORM, VizMode.WAVES,
             ),
             seen,
         )
         show.prev()
-        assertEquals(VizMode.STAR, show.current)
+        assertEquals(VizMode.STORM, show.current)
     }
 
     @Test
     fun stepOpensCrossfadeThenSettles() {
-        val show = VizShow(VizMode.MANDELBROT, autoCycle = false)
+        val show = VizShow(VizMode.WAVES, autoCycle = false)
         show.next()
-        assertEquals(VizMode.MANDELBROT, show.outgoing)
+        assertEquals(VizMode.WAVES, show.outgoing)
         assertEquals(0f, show.fade, 0.0001f)
         show.frame(VIZ_FADE_MS / 2)
         assertEquals(0.5f, show.fade, 0.01f)
@@ -69,15 +69,15 @@ class VizEngineTest {
 
     @Test
     fun autoCycleAdvancesOnlyWhenEnabled() {
-        val on = VizShow(VizMode.MANDELBROT, autoCycle = true)
+        val on = VizShow(VizMode.WAVES, autoCycle = true)
         on.frame(VIZ_CYCLE_MS - 1)
-        assertEquals(VizMode.MANDELBROT, on.current)
+        assertEquals(VizMode.WAVES, on.current)
         on.frame(1)
-        assertEquals(VizMode.RIBBONS, on.current)
+        assertEquals(VizMode.BARS, on.current)
 
-        val off = VizShow(VizMode.MANDELBROT, autoCycle = false)
+        val off = VizShow(VizMode.WAVES, autoCycle = false)
         off.frame(VIZ_CYCLE_MS * 5)
-        assertEquals(VizMode.MANDELBROT, off.current)
+        assertEquals(VizMode.WAVES, off.current)
         assertNull(off.outgoing)
     }
 
@@ -97,15 +97,56 @@ class VizEngineTest {
 
     @Test
     fun manualStepRestartsCycleClock() {
-        val show = VizShow(VizMode.MANDELBROT, autoCycle = true)
+        val show = VizShow(VizMode.WAVES, autoCycle = true)
         show.frame(VIZ_CYCLE_MS - 100)
         show.next()
         show.frame(VIZ_FADE_MS)
-        assertEquals(VizMode.RIBBONS, show.current)
+        assertEquals(VizMode.BARS, show.current)
         // Nearly a full cycle later it still holds: the clock restarted.
         show.frame(VIZ_CYCLE_MS - 100)
-        assertEquals(VizMode.RIBBONS, show.current)
+        assertEquals(VizMode.BARS, show.current)
         show.frame(100)
-        assertEquals(VizMode.POLAR, show.current)
+        assertEquals(VizMode.SCOPE, show.current)
+    }
+
+    @Test
+    fun downsampleTakesPeakPerSpan() {
+        val spectrum = FloatArray(8) { it.toFloat() / 8 }
+        val out = downsampleSpectrum(spectrum, 4)
+        assertEquals(4, out.size)
+        assertEquals(0.125f, out[0], 0.001f)
+        assertEquals(0.875f, out[3], 0.001f)
+    }
+
+    @Test
+    fun downsampleDegradesGracefully() {
+        assertEquals(4, downsampleSpectrum(FloatArray(0), 4).size)
+        assertTrue(downsampleSpectrum(FloatArray(0), 4).all { it == 0f })
+        assertEquals(0, downsampleSpectrum(FloatArray(8), 0).size)
+    }
+
+    @Test
+    fun peaksAttackInstantlyAndFallLinearly() {
+        val peaks = FloatArray(2)
+        stepPeaks(peaks, floatArrayOf(1f, 0.5f), 0.016f)
+        assertEquals(1f, peaks[0], 0.001f)
+        assertEquals(0.5f, peaks[1], 0.001f)
+        stepPeaks(peaks, floatArrayOf(0f, 0f), 0.5f, fallPerSec = 1f)
+        assertEquals(0.5f, peaks[0], 0.001f)
+        assertEquals(0f, peaks[1], 0.001f)
+        stepPeaks(peaks, floatArrayOf(0f, 0f), 0f)
+        assertEquals(0.5f, peaks[0], 0.001f)
+    }
+
+    @Test
+    fun stormRatesScaleWithSignal() {
+        assertEquals(0f, stormBeatRate(0f), 0.001f)
+        assertEquals(600f, stormBeatRate(1f), 0.001f)
+        assertEquals(300f, stormBeatRate(0.5f), 0.001f)
+        assertEquals(0f, stormBeatRate(-2f), 0.001f)
+        assertEquals(600f, stormBeatRate(9f), 0.001f)
+        assertEquals(0f, stormAmbientRate(0f), 0.001f)
+        assertEquals(150f, stormAmbientRate(1f), 0.001f)
+        assertEquals(75f, stormAmbientRate(0.5f), 0.001f)
     }
 }

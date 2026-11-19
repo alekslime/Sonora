@@ -22,26 +22,30 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FormatQuote
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,41 +61,50 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.sonora.data.Album
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.toMinSec
-import com.sonora.liquid.LiquidConfigStore
 import com.sonora.liquid.LiquidSettingsSheet
+import com.sonora.playback.PlaybackHub
 import com.sonora.playback.PlaybackOrchestrator
 import com.sonora.playback.ServiceEngine
+import com.sonora.playback.TrackFormat
 import com.sonora.studio.AudioStudioStore
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
-import com.sonora.theme.SonoraShapes
 
-private val ArtShape = RoundedCornerShape(8.dp)
+private val ArtShape = RoundedCornerShape(28.dp)
 
 /**
- * Now Playing: a clean player in SONORA's voice. Large artwork (tap to
- * open Liquid), track identity, minimal progress, and full transport:
- * shuffle, previous, play/pause, next, repeat. Real albums play through
- * the M6 background service via the app-scoped orchestrator, so
+ * Now Playing in the Obsidian glass voice: the artwork washes a blurred
+ * full-bleed backdrop, transport sits on frosted-glass circles, and the
+ * play control is one solid white disc. Shuffle/repeat live in the
+ * options sheet, the queue lists the album, and the heart/add pair
+ * share the persisted liked-songs state. Real albums play through the
+ * M6 background service via the app-scoped orchestrator, so
  * notification and lock-screen stay in sync; demo albums simulate
  * playback with a screen-local state ticker.
  */
@@ -205,33 +218,43 @@ fun NowPlayingScreen(
             notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
-    var liquidSheetOpen by rememberSaveable { mutableStateOf(false) }
 
-    val tint = remember(album.artSeed) {
-        Color.hsv(((album.artSeed % 360 + 360) % 360).toFloat(), 0.55f, 0.20f)
+    var liquidSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var queueOpen by rememberSaveable { mutableStateOf(false) }
+    var optionsOpen by rememberSaveable { mutableStateOf(false) }
+    val format by PlaybackHub.format.collectAsState()
+    val likedKey = remember(album.id, state.trackIndex) {
+        LikedStore.keyFor(album, state.trackIndex)
     }
+    val liked = LikedStore.isLiked(likedKey)
+
+    fun playQueueIndex(index: Int) {
+        queueOpen = false
+        if (album.isReal) {
+            PlaybackOrchestrator.startAlbum(
+                context, album, index, playing = true, shuffle = state.shuffle,
+            )
+        } else {
+            state.playTrack(index)
+        }
+    }
+
     BoxWithConstraints(
         modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    0f to tint,
-                    0.45f to colors.obsidian,
-                    1f to colors.abyss,
-                ),
-            )
             .semantics { contentDescription = "Now playing" },
     ) {
+        ObsidianBackdrop(album = album)
         if (maxWidth > maxHeight) {
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .padding(28.dp),
+                        .padding(24.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Artwork(
+                    ObsidianArtwork(
                         album = album,
                         onOpenLiquid = onOpenLiquid,
                         modifier = Modifier
@@ -243,22 +266,38 @@ fun NowPlayingScreen(
                     Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .verticalScroll(rememberScrollState())
-                        .padding(end = 28.dp, top = 12.dp, bottom = 16.dp),
+                        .navigationBarsPadding()
+                        .padding(end = 28.dp, top = 4.dp, bottom = 20.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    PlayerBody(
+                    ObsidianTopBar(
+                        liked = liked,
+                        onBack = onBack,
+                        onToggleLike = { LikedStore.toggle(likedKey) },
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    PlayerStack(
                         state = state,
-                        onOpenLiquidSettings = { liquidSheetOpen = true },
+                        format = format,
+                        liked = liked,
+                        likedKey = likedKey,
+                        demo = !album.isReal,
+                        onOpenOptions = { optionsOpen = true },
+                        onOpenLiquid = onOpenLiquid,
+                        onOpenQueue = { queueOpen = true },
                         onOpenStudio = onOpenStudio,
                     )
                 }
             }
         } else {
-            Column(Modifier.fillMaxSize()) {
-                TopBar(albumTitle = album.title, onBack = onBack)
+            Column(Modifier.fillMaxSize().navigationBarsPadding()) {
+                ObsidianTopBar(
+                    liked = liked,
+                    onBack = onBack,
+                    onToggleLike = { LikedStore.toggle(likedKey) },
+                )
                 Spacer(Modifier.height(8.dp))
-                Artwork(
+                ObsidianArtwork(
                     album = album,
                     onOpenLiquid = onOpenLiquid,
                     modifier = Modifier
@@ -266,12 +305,53 @@ fun NowPlayingScreen(
                         .padding(horizontal = 24.dp)
                         .aspectRatio(1f),
                 )
-                Spacer(Modifier.height(20.dp))
-                PlayerBody(
+                Spacer(Modifier.height(22.dp))
+                PlayerStack(
                     state = state,
-                    onOpenLiquidSettings = { liquidSheetOpen = true },
+                    format = format,
+                    liked = liked,
+                    likedKey = likedKey,
+                    demo = !album.isReal,
+                    fillTransportGap = true,
+                    onOpenOptions = { optionsOpen = true },
+                    onOpenLiquid = onOpenLiquid,
+                    onOpenQueue = { queueOpen = true },
                     onOpenStudio = onOpenStudio,
                     modifier = Modifier.padding(horizontal = 28.dp),
+                )
+                Spacer(Modifier.height(26.dp))
+            }
+        }
+        if (queueOpen) {
+            ModalBottomSheet(
+                onDismissRequest = { queueOpen = false },
+                containerColor = colors.charcoal,
+                contentColor = colors.ivory,
+            ) {
+                QueueSheet(
+                    album = album,
+                    currentIndex = state.trackIndex,
+                    onPlayTrack = ::playQueueIndex,
+                )
+            }
+        }
+        if (optionsOpen) {
+            ModalBottomSheet(
+                onDismissRequest = { optionsOpen = false },
+                containerColor = colors.charcoal,
+                contentColor = colors.ivory,
+            ) {
+                PlayerOptionsSheet(
+                    state = state,
+                    formatLine = format?.displayLine,
+                    onOpenLiquid = {
+                        optionsOpen = false
+                        onOpenLiquid()
+                    },
+                    onOpenLiquidSettings = {
+                        optionsOpen = false
+                        liquidSheetOpen = true
+                    },
                 )
             }
         }
@@ -287,52 +367,159 @@ fun NowPlayingScreen(
     }
 }
 
+/**
+ * Full-bleed artwork wash: the cover blurred past recognition under a
+ * legibility scrim. Below API 31 blur is a no-op, so the art dims into
+ * the hue gradient instead of rendering sharp behind the controls.
+ */
 @Composable
-private fun TopBar(albumTitle: String, onBack: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = LocalSonoraColors.current
-    val type = LocalSonoraTypography.current
-    Row(
+private fun ObsidianBackdrop(album: Album, modifier: Modifier = Modifier) {
+    val art = rememberAlbumArtwork(album)
+    val tint = remember(album.artSeed) {
+        Color.hsv(((album.artSeed % 360 + 360) % 360).toFloat(), 0.55f, 0.20f)
+    }
+    Box(
         modifier
-            .fillMaxWidth()
-            .padding(start = 8.dp, end = 8.dp, top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    0f to tint,
+                    0.5f to Color(0xFF0B0B10),
+                    1f to Color.Black,
+                ),
+            ),
     ) {
-        IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Close player", tint = colors.ivory)
-        }
-        Column(
-            Modifier.weight(1f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("Playing from album".uppercase(), style = type.labelCaps, color = colors.ivoryFaint)
-            Spacer(Modifier.height(2.dp))
-            Text(
-                albumTitle,
-                style = type.caption,
-                color = colors.ivory,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        if (art != null) {
+            Image(
+                bitmap = art,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = 1.25f
+                        scaleY = 1.25f
+                    }
+                    .blur(80.dp)
+                    .alpha(if (Build.VERSION.SDK_INT >= 31) 1f else 0.45f),
+                contentScale = ContentScale.Crop,
             )
         }
-        Spacer(Modifier.size(48.dp))
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.28f),
+                        0.45f to Color.Black.copy(alpha = 0.42f),
+                        1f to Color.Black.copy(alpha = 0.72f),
+                    ),
+                ),
+        )
     }
 }
 
 @Composable
-private fun Artwork(album: Album, onOpenLiquid: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = LocalSonoraColors.current
+private fun ObsidianTopBar(
+    liked: Boolean,
+    onBack: () -> Unit,
+    onToggleLike: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val type = LocalSonoraTypography.current
+    Row(
+        modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(start = 20.dp, end = 20.dp, top = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GlassCircleButton(onClick = onBack, description = "Close player", size = 52.dp) {
+            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+        }
+        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            Text(
+                "Now Playing",
+                style = type.caption.copy(
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.5.sp,
+                ),
+                color = Color.White.copy(alpha = 0.85f),
+            )
+        }
+        GlassCircleButton(
+            onClick = onToggleLike,
+            description = if (liked) "Unlike this song" else "Like this song",
+            size = 52.dp,
+        ) {
+            Icon(
+                if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Frosted-glass circle. The backdrop behind it is pre-blurred artwork,
+ * which is what makes the translucent fill read as liquid glass.
+ */
+@Composable
+private fun GlassCircleButton(
+    onClick: () -> Unit,
+    description: String,
+    size: Dp,
+    modifier: Modifier = Modifier,
+    icon: @Composable () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .size(size)
+            .semantics { contentDescription = description },
+        shape = CircleShape,
+        color = Color.White.copy(alpha = 0.14f),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            icon()
+        }
+    }
+}
+
+@Composable
+private fun ObsidianArtwork(
+    album: Album,
+    onOpenLiquid: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val type = LocalSonoraTypography.current
     val art = rememberAlbumArtwork(album)
     Box(
         modifier
-            .shadow(24.dp, ArtShape, ambientColor = Color.Black, spotColor = Color.Black)
+            .shadow(28.dp, ArtShape, ambientColor = Color.Black, spotColor = Color.Black)
             .clip(ArtShape)
-            .background(Color(0xFF1A1A1E))
+            .background(Color(0xFF1A1A1A))
             .clickable(
                 role = Role.Button,
                 onClickLabel = "Open Liquid visualizer",
                 onClick = onOpenLiquid,
-            ),
+            )
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                // The cover dissolves into the backdrop along its base.
+                drawRect(
+                    Brush.verticalGradient(
+                        0f to Color.Black,
+                        0.66f to Color.Black,
+                        0.85f to Color.Black.copy(alpha = 0.45f),
+                        1f to Color.Transparent,
+                    ),
+                    blendMode = BlendMode.DstIn,
+                )
+            },
         contentAlignment = Alignment.Center,
     ) {
         if (art != null) {
@@ -346,74 +533,113 @@ private fun Artwork(album: Album, onOpenLiquid: () -> Unit, modifier: Modifier =
             Text(
                 album.title.firstOrNull()?.uppercase() ?: "",
                 style = type.display,
-                color = colors.ivory.copy(alpha = 0.25f),
+                color = Color.White.copy(alpha = 0.25f),
             )
         }
     }
 }
 
 @Composable
-private fun PlayerBody(
+private fun PlayerStack(
     state: NowPlayingState,
-    onOpenLiquidSettings: () -> Unit,
+    format: TrackFormat?,
+    liked: Boolean,
+    likedKey: String,
+    demo: Boolean,
+    onOpenOptions: () -> Unit,
+    onOpenLiquid: () -> Unit,
+    onOpenQueue: () -> Unit,
     onOpenStudio: () -> Unit,
     modifier: Modifier = Modifier,
+    fillTransportGap: Boolean = false,
 ) {
-    val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     Column(modifier.fillMaxWidth()) {
-        Text(
-            "Track %02d / %02d".format(state.trackIndex + 1, state.album.tracks.size),
-            style = type.labelCaps,
-            color = colors.ivoryFaint,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            state.track.title,
-            style = type.title.copy(fontSize = 22.sp, lineHeight = 26.sp),
-            color = colors.ivory,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            state.album.artist,
-            style = type.body,
-            color = colors.ivoryDim,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(state.positionMs.toMinSec(), style = type.mono, color = colors.ivoryDim)
-            Spacer(Modifier.weight(1f))
-            Text(state.durationMs.toMinSec(), style = type.mono, color = colors.ivoryDim)
+            Column(Modifier.weight(1f)) {
+                Text(
+                    state.track.title,
+                    style = type.title.copy(
+                        fontSize = 26.sp,
+                        lineHeight = 30.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    state.album.artist,
+                    style = type.body.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                    color = Color.White.copy(alpha = 0.6f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            GlassCircleButton(onClick = onOpenOptions, description = "More options", size = 52.dp) {
+                Icon(Icons.Filled.MoreVert, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+            }
         }
-        SeekBar(
+        Spacer(Modifier.height(20.dp))
+        ObsidianSeekBar(
             fraction = state.fraction,
             onSeek = { state.seekTo((it * state.durationMs).toLong()) },
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(10.dp))
-        ControlsRow(
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                state.positionMs.toMinSec(),
+                style = type.caption.copy(fontSize = 12.sp),
+                color = Color.White.copy(alpha = 0.6f),
+            )
+            Spacer(Modifier.weight(1f))
+            Icon(
+                Icons.Filled.GraphicEq,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.6f),
+                modifier = Modifier.size(14.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                formatBadge(format),
+                style = type.caption.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium),
+                color = Color.White.copy(alpha = 0.6f),
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                "-${(state.durationMs - state.positionMs).toMinSec()}",
+                style = type.caption.copy(fontSize = 12.sp),
+                color = Color.White.copy(alpha = 0.6f),
+            )
+        }
+        if (fillTransportGap) {
+            Spacer(Modifier.weight(1f))
+        } else {
+            Spacer(Modifier.height(16.dp))
+        }
+        ObsidianTransport(
             isPlaying = state.isPlaying,
-            shuffleOn = state.shuffle,
-            repeatMode = state.repeatMode,
-            onToggleShuffle = { state.toggleShuffle() },
             onPrev = { state.prev() },
             onToggle = { state.toggle() },
             onNext = { state.next() },
-            onCycleRepeat = { state.cycleRepeat() },
         )
-        Spacer(Modifier.height(4.dp))
-        LiquidRow(onOpen = onOpenLiquidSettings)
-        StudioRow(onOpen = onOpenStudio)
-        if (!state.album.isReal) {
-            Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(24.dp))
+        ObsidianActionRow(
+            liked = liked,
+            onOpenLiquid = onOpenLiquid,
+            onToggleLike = { LikedStore.toggle(likedKey) },
+            onOpenQueue = onOpenQueue,
+            onOpenStudio = onOpenStudio,
+        )
+        if (demo) {
+            Spacer(Modifier.height(12.dp))
             Text(
                 "Demo playback — allow library access to hear your music.",
-                style = type.caption,
-                color = colors.ivoryFaint,
+                style = type.caption.copy(fontSize = 12.sp),
+                color = Color.White.copy(alpha = 0.45f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -421,59 +647,18 @@ private fun PlayerBody(
     }
 }
 
-@Composable
-private fun LiquidRow(onOpen: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = LocalSonoraColors.current
-    val type = LocalSonoraTypography.current
-    Row(
-        modifier
-            .fillMaxWidth()
-            .clip(SonoraShapes.small)
-            .clickable(role = Role.Button, onClickLabel = "Liquid visualizer settings", onClick = onOpen)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Text("Liquid".uppercase(), style = type.labelCaps, color = colors.ivoryDim)
-        Spacer(Modifier.width(8.dp))
-        Text(
-            LiquidConfigStore.config.preset.label,
-            style = type.caption,
-            color = colors.amber,
-        )
-        Spacer(Modifier.width(4.dp))
-        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = colors.ivoryFaint, modifier = Modifier.size(16.dp))
+private fun formatBadge(format: TrackFormat?): String {
+    if (format == null) return "Lossless"
+    return when (format.codec.uppercase()) {
+        "FLAC", "ALAC", "WAV" -> "Lossless"
+        else -> format.codec.uppercase()
     }
 }
 
 @Composable
-private fun StudioRow(onOpen: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = LocalSonoraColors.current
-    val type = LocalSonoraTypography.current
-    Row(
-        modifier
-            .fillMaxWidth()
-            .clip(SonoraShapes.small)
-            .clickable(role = Role.Button, onClickLabel = "Open Audio Studio", onClick = onOpen)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Text("Audio Studio".uppercase(), style = type.labelCaps, color = colors.ivoryDim)
-        Spacer(Modifier.width(4.dp))
-        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = colors.ivoryFaint, modifier = Modifier.size(16.dp))
-    }
-}
-
-@Composable
-private fun SeekBar(fraction: Float, onSeek: (Float) -> Unit, modifier: Modifier = Modifier) {
-    val colors = LocalSonoraColors.current
+private fun ObsidianSeekBar(fraction: Float, onSeek: (Float) -> Unit, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.height(32.dp)) {
         val widthPx = constraints.maxWidth.toFloat()
-        val density = LocalDensity.current
-        val knobStart = remember(fraction, constraints.maxWidth) {
-            with(density) { (fraction.coerceIn(0f, 1f) * (constraints.maxWidth - 12.dp.toPx())).toDp() }
-        }
         Box(
             Modifier
                 .fillMaxSize()
@@ -494,115 +679,113 @@ private fun SeekBar(fraction: Float, onSeek: (Float) -> Unit, modifier: Modifier
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(3.dp)
+                    .height(4.dp)
                     .clip(CircleShape)
-                    .background(colors.graphite),
+                    .background(Color.White.copy(alpha = 0.22f)),
             )
             Box(
                 Modifier
                     .fillMaxWidth(fraction.coerceIn(0f, 1f))
-                    .height(3.dp)
+                    .height(4.dp)
+                    .shadow(6.dp, CircleShape, ambientColor = Color.White.copy(alpha = 0.5f))
                     .clip(CircleShape)
-                    .background(colors.ivory),
-            )
-            Box(
-                Modifier
-                    .padding(start = knobStart)
-                    .size(12.dp)
-                    .clip(CircleShape)
-                    .background(colors.ivory),
+                    .background(Color.White),
             )
         }
     }
 }
 
 @Composable
-private fun ControlsRow(
+private fun ObsidianTransport(
     isPlaying: Boolean,
-    shuffleOn: Boolean,
-    repeatMode: RepeatMode,
-    onToggleShuffle: () -> Unit,
     onPrev: () -> Unit,
     onToggle: () -> Unit,
     onNext: () -> Unit,
-    onCycleRepeat: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = LocalSonoraColors.current
     Row(
         modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        ToggleControl(
-            active = shuffleOn,
-            onClick = onToggleShuffle,
-            description = if (shuffleOn) "Shuffle on" else "Shuffle off",
-            icon = { tint -> Icon(Icons.Filled.Shuffle, contentDescription = null, tint = tint, modifier = Modifier.size(26.dp)) },
-        )
-        IconButton(onClick = onPrev, modifier = Modifier.size(60.dp)) {
-            Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous track", tint = colors.ivory, modifier = Modifier.size(36.dp))
+        Surface(
+            onClick = onPrev,
+            modifier = Modifier
+                .size(64.dp)
+                .semantics { contentDescription = "Previous track" },
+            shape = CircleShape,
+            color = Color.Transparent,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.FastRewind, contentDescription = null, tint = Color.White, modifier = Modifier.size(46.dp))
+            }
         }
         Surface(
             onClick = onToggle,
-            modifier = Modifier.size(72.dp),
+            modifier = Modifier
+                .size(92.dp)
+                .semantics { contentDescription = if (isPlaying) "Pause" else "Play" },
             shape = CircleShape,
-            color = colors.ivory,
-            contentColor = colors.obsidian,
+            color = Color.White,
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    modifier = Modifier.size(36.dp),
+                    contentDescription = null,
+                    tint = Color.Black,
+                    modifier = Modifier.size(44.dp),
                 )
             }
         }
-        IconButton(onClick = onNext, modifier = Modifier.size(60.dp)) {
-            Icon(Icons.Filled.SkipNext, contentDescription = "Next track", tint = colors.ivory, modifier = Modifier.size(36.dp))
+        Surface(
+            onClick = onNext,
+            modifier = Modifier
+                .size(64.dp)
+                .semantics { contentDescription = "Next track" },
+            shape = CircleShape,
+            color = Color.Transparent,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.FastForward, contentDescription = null, tint = Color.White, modifier = Modifier.size(46.dp))
+            }
         }
-        ToggleControl(
-            active = repeatMode != RepeatMode.OFF,
-            onClick = onCycleRepeat,
-            description = "Repeat ${repeatMode.name.lowercase()}",
-            icon = { tint ->
-                Icon(
-                    if (repeatMode == RepeatMode.ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-                    contentDescription = null,
-                    tint = tint,
-                    modifier = Modifier.size(26.dp),
-                )
-            },
-        )
     }
 }
 
 @Composable
-private fun ToggleControl(
-    active: Boolean,
-    onClick: () -> Unit,
-    description: String,
-    icon: @Composable (tint: Color) -> Unit,
+private fun ObsidianActionRow(
+    liked: Boolean,
+    onOpenLiquid: () -> Unit,
+    onToggleLike: () -> Unit,
+    onOpenQueue: () -> Unit,
+    onOpenStudio: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = LocalSonoraColors.current
-    Column(
-        modifier.width(48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Row(
+        modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        IconButton(
-            onClick = onClick,
-            modifier = Modifier
-                .size(48.dp)
-                .semantics { contentDescription = description },
-        ) {
-            icon(if (active) colors.amber else colors.ivoryDim)
+        GlassCircleButton(onClick = onOpenLiquid, description = "Open Liquid visualizer", size = 64.dp) {
+            Icon(Icons.Filled.FormatQuote, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
         }
-        Box(
-            Modifier
-                .size(4.dp)
-                .clip(CircleShape)
-                .background(if (active) colors.amber else Color.Transparent),
-        )
+        GlassCircleButton(
+            onClick = onToggleLike,
+            description = if (liked) "Liked" else "Add to liked songs",
+            size = 64.dp,
+        ) {
+            Icon(
+                if (liked) Icons.Filled.Check else Icons.Filled.Add,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(28.dp),
+            )
+        }
+        GlassCircleButton(onClick = onOpenQueue, description = "Open queue", size = 64.dp) {
+            Icon(Icons.Filled.List, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+        }
+        GlassCircleButton(onClick = onOpenStudio, description = "Open Audio Studio", size = 64.dp) {
+            Icon(Icons.Filled.Tune, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+        }
     }
 }

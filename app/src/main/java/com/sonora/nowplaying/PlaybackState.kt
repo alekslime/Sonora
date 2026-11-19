@@ -125,6 +125,18 @@ class NowPlayingState(album: Album, startTrackIndex: Int) {
         forwardPlay()
     }
 
+    /**
+     * Jumps to an arbitrary track (queue sheet) and plays it from the
+     * top. Out-of-range indices are ignored, leaving state untouched.
+     */
+    fun playTrack(index: Int) {
+        if (index !in album.tracks.indices) return
+        trackIndex = index
+        positionMs = 0L
+        isPlaying = true
+        forwardPlay()
+    }
+
     /** Cues the current track on the engine; no-op without engine or URI. */
     private fun forwardPlay() {
         val uri = track.uri ?: return

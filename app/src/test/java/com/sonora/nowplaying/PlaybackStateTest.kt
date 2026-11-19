@@ -210,4 +210,27 @@ class PlaybackStateTest {
         assertEquals(0, state.trackIndex)
         assertEquals(false, state.isPlaying)
     }
+
+    @Test
+    fun playTrackJumpsAndPlaysFromTop() {
+        val state = NowPlayingState(album(), 0)
+        state.play()
+        state.seekTo(60_000L)
+        state.playTrack(2)
+        assertEquals(2, state.trackIndex)
+        assertEquals(0L, state.positionMs)
+        assertTrue(state.isPlaying)
+    }
+
+    @Test
+    fun playTrackIgnoresOutOfRange() {
+        val state = NowPlayingState(album(), 1)
+        state.play()
+        state.seekTo(30_000L)
+        state.playTrack(-1)
+        state.playTrack(99)
+        assertEquals(1, state.trackIndex)
+        assertEquals(30_000L, state.positionMs)
+        assertTrue(state.isPlaying)
+    }
 }

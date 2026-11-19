@@ -38,6 +38,7 @@ object SonoraPrefs {
     private val GEST_HAPTICS = booleanPreferencesKey("gest_haptics")
     private val GEST_REDUCED_MOTION = booleanPreferencesKey("gest_reduced_motion")
     private val SNAPSHOT = stringPreferencesKey("playback_snapshot")
+    private val LIKED = stringPreferencesKey("liked_tracks")
 
     suspend fun loadStudio(context: Context): AudioStudioConfig {
         val prefs = context.sonoraDataStore.data.first()
@@ -100,6 +101,18 @@ object SonoraPrefs {
     suspend fun loadSnapshot(context: Context): PlaybackSnapshot? {
         val prefs = context.sonoraDataStore.data.first()
         return PlaybackSnapshot.decode(prefs[SNAPSHOT])
+    }
+
+    /** M8 liked songs. Reads degrade to empty (nothing liked yet). */
+    suspend fun loadLiked(context: Context): Set<String> {
+        val prefs = context.sonoraDataStore.data.first()
+        return com.sonora.nowplaying.LikedStore.decode(prefs[LIKED])
+    }
+
+    suspend fun saveLiked(context: Context, keys: Set<String>) {
+        context.sonoraDataStore.edit { prefs ->
+            prefs[LIKED] = com.sonora.nowplaying.LikedStore.encode(keys)
+        }
     }
 
     /** Comma-joined dB values, clamped to the Studio range. */

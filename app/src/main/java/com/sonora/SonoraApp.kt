@@ -42,13 +42,13 @@ import com.sonora.gesture.GestureContext
 import com.sonora.gesture.SonoraGestureLayer
 import com.sonora.gesture.isAssistiveTouchActive
 import com.sonora.liquid.LiquidOverlay
+import com.sonora.nowplaying.LikedStore
 import com.sonora.nowplaying.NowPlayingScreen
 import com.sonora.nowplaying.NowPlayingState
 import com.sonora.playback.PlaybackHub
 import com.sonora.playback.PlaybackOrchestrator
 import com.sonora.studio.AudioStudioScreen
 import com.sonora.studio.AudioStudioStore
-import com.sonora.shelf.ShelfScreen
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.SonoraMotion
 import com.sonora.theme.SonoraTheme
@@ -56,7 +56,6 @@ import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 private sealed interface Destination {
-    data object Shelf : Destination
     data object Browse : Destination
     data class Detail(val albumId: String) : Destination
     data class NowPlaying(val albumId: String, val startTrackIndex: Int) : Destination
@@ -65,7 +64,6 @@ private sealed interface Destination {
 private val DestinationSaver = Saver<Destination, String>(
     save = {
         when (it) {
-            Destination.Shelf -> "shelf"
             Destination.Browse -> "browse"
             is Destination.Detail -> "detail:${it.albumId}"
             is Destination.NowPlaying -> "nowplaying:${it.albumId}:${it.startTrackIndex}"
@@ -73,13 +71,13 @@ private val DestinationSaver = Saver<Destination, String>(
     },
     restore = { route ->
         when {
-            route == "browse" -> Destination.Browse
+            route == "browse" || route == "shelf" -> Destination.Browse
             route.startsWith("detail:") -> Destination.Detail(route.removePrefix("detail:"))
             route.startsWith("nowplaying:") -> {
                 val parts = route.removePrefix("nowplaying:").split(":")
                 Destination.NowPlaying(parts[0], parts.getOrNull(1)?.toIntOrNull() ?: 0)
             }
-            else -> Destination.Shelf
+            else -> Destination.Browse
         }
     },
 )
@@ -100,8 +98,8 @@ private sealed interface LibraryState {
 
 /**
  * SONORA root. Minimal state-machine navigation with a back stack:
- * Shelf <-> Detail -> Now Playing, Shelf <-> Browse. Liquid and Audio
- * Studio are overlays above navigation so playback state survives visits.
+ * Browse (home) -> Detail -> Now Playing. Liquid and Audio Studio are
+ * overlays above navigation so playback state survives visits.
  * The library is scanned from MediaStore once audio access is granted;
  * until then (or when empty) the mock library serves as a demo mode.
  */
@@ -133,8 +131,10 @@ fun SonoraApp() {
         LaunchedEffect(Unit) {
             AudioStudioStore.replace(SonoraPrefs.loadStudio(appContext))
             GestureConfigStore.replace(SonoraPrefs.loadGestures(appContext))
+            LikedStore.replace(SonoraPrefs.loadLiked(appContext))
             launch { snapshotFlow { AudioStudioStore.config }.collect { SonoraPrefs.saveStudio(appContext, it) } }
             launch { snapshotFlow { GestureConfigStore.config }.collect { SonoraPrefs.saveGestures(appContext, it) } }
+            launch { snapshotFlow { LikedStore.liked }.collect { SonoraPrefs.saveLiked(appContext, it) } }
             refreshLibrary()
         }
 
@@ -146,7 +146,7 @@ fun SonoraApp() {
         val isDemo = library is LibraryState.Demo
 
         var stack by rememberSaveable(stateSaver = StackSaver) {
-            mutableStateOf<List<Destination>>(listOf(Destination.Shelf))
+            mutableStateOf<List<Destination>>(listOf(Destination.Browse))
         }
         var liquidOpen by rememberSaveable { mutableStateOf(false) }
         var studioOpen by rememberSaveable { mutableStateOf(false) }
@@ -203,22 +203,15 @@ fun SonoraApp() {
                     label = "sonora-nav",
                 ) { destination ->
                     when (destination) {
-                        Destination.Shelf -> ShelfScreen(
+                        Destination.Browse -> BrowseScreen(
                             albums = libraryAlbums,
                             onOpenAlbum = { push(Destination.Detail(it.id)) },
-                            onBrowseAll = { push(Destination.Browse) },
                             demo = isDemo,
                             onExitDemo = if (isDemo) {
                                 { scope.launch { refreshLibrary() } }
                             } else {
                                 null
                             },
-                        )
-                        Destination.Browse -> BrowseScreen(
-                            albums = libraryAlbums,
-                            onOpenAlbum = { push(Destination.Detail(it.id)) },
-                            onBack = { pop() },
-                            demo = isDemo,
                         )
                         is Destination.Detail -> {
                             val album = libraryAlbums.firstOrNull { it.id == destination.albumId } ?: libraryAlbums.first()

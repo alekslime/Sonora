@@ -8,11 +8,11 @@ import androidx.compose.animation.core.tween
 
 /**
  * M0 motion principles: motion communicates physicality and state changes.
- * Shelf settling uses a slightly underdamped spring so the stack feels
- * weighty; screen transitions are short fades, never playful.
+ * Settling uses a slightly underdamped spring so movement feels weighty;
+ * screen transitions are short fades, never playful.
  */
 object SonoraMotion {
-    /** Shelf snap-to-selection and programmatic selection. */
+    /** Snap-to-selection and programmatic selection. */
     fun <T> settle() = spring<T>(
         stiffness = Spring.StiffnessMediumLow,
         dampingRatio = 0.86f,

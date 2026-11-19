@@ -60,4 +60,25 @@ class LikedSongsTest {
         assertFalse(LikedStore.isLiked("k"))
         LikedStore.replace(emptySet())
     }
+
+    @Test
+    fun resolveFindsUriAndFallbackKeysInOrder() {
+        val second = album().copy(id = "a2", tracks = listOf(Track(1, "Solo", 60_000L)))
+        val entries = LikedStore.resolve(
+            setOf("a2#0", "content://media/audio/7", "ghost#9"),
+            listOf(album(), second),
+        )
+        assertEquals(2, entries.size)
+        assertEquals("a1", entries[0].album.id)
+        assertEquals(0, entries[0].trackIndex)
+        assertEquals("a2", entries[1].album.id)
+        assertEquals(0, entries[1].trackIndex)
+    }
+
+    @Test
+    fun resolveEmptyWhenNothingMatches() {
+        assertTrue(LikedStore.resolve(emptySet(), listOf(album())).isEmpty())
+        assertTrue(LikedStore.resolve(setOf("x#0"), listOf(album())).isEmpty())
+        assertTrue(LikedStore.resolve(setOf("a1#1"), emptyList()).isEmpty())
+    }
 }

@@ -38,4 +38,20 @@ object LikedStore {
         if (raw.isNullOrBlank()) return emptySet()
         return raw.split("\n").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
     }
+
+    /**
+     * Resolves liked keys against the library in album/track order,
+     * silently dropping keys whose songs are gone. Pure.
+     */
+    fun resolve(keys: Set<String>, albums: List<Album>): List<LikedEntry> {
+        if (keys.isEmpty()) return emptyList()
+        return albums.flatMap { album ->
+            album.tracks.indices.mapNotNull { index ->
+                if (keyFor(album, index) in keys) LikedEntry(album, index) else null
+            }
+        }
+    }
 }
+
+/** A liked track pinned to its album and position. */
+data class LikedEntry(val album: Album, val trackIndex: Int)

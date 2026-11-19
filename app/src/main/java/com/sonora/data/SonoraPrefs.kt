@@ -39,6 +39,7 @@ object SonoraPrefs {
     private val GEST_REDUCED_MOTION = booleanPreferencesKey("gest_reduced_motion")
     private val SNAPSHOT = stringPreferencesKey("playback_snapshot")
     private val LIKED = stringPreferencesKey("liked_tracks")
+    private val HISTORY = stringPreferencesKey("play_history")
 
     suspend fun loadStudio(context: Context): AudioStudioConfig {
         val prefs = context.sonoraDataStore.data.first()
@@ -112,6 +113,18 @@ object SonoraPrefs {
     suspend fun saveLiked(context: Context, keys: Set<String>) {
         context.sonoraDataStore.edit { prefs ->
             prefs[LIKED] = com.sonora.nowplaying.LikedStore.encode(keys)
+        }
+    }
+
+    /** M11 recently-played history. Reads degrade to empty. */
+    suspend fun loadHistory(context: Context): List<String> {
+        val prefs = context.sonoraDataStore.data.first()
+        return com.sonora.nowplaying.PlayHistory.decode(prefs[HISTORY])
+    }
+
+    suspend fun saveHistory(context: Context, keys: List<String>) {
+        context.sonoraDataStore.edit { prefs ->
+            prefs[HISTORY] = com.sonora.nowplaying.PlayHistory.encode(keys)
         }
     }
 

@@ -119,6 +119,12 @@ fun NowPlayingScreen(
     onOpenStudio: () -> Unit,
     onSession: (NowPlayingState) -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Live app-scoped session to adopt (mini-player expand). For demo
+     * albums with a matching session the position is kept and no
+     * restore runs; otherwise a fresh local state starts the visit.
+     */
+    adoptSession: NowPlayingState? = null,
 ) {
     val colors = LocalSonoraColors.current
     val context = LocalContext.current
@@ -146,7 +152,12 @@ fun NowPlayingScreen(
     }
     val localState = remember(album.id, startTrackIndex) { NowPlayingState(album, startTrackIndex) }
     val orchestrated = PlaybackOrchestrator.state
-    val state = if (album.isReal && orchestrated?.album?.id == album.id) orchestrated else localState
+    val adopted = adoptSession?.takeIf { !album.isReal && it.album.id == album.id }
+    val state = if (album.isReal && orchestrated?.album?.id == album.id) {
+        orchestrated
+    } else {
+        adopted ?: localState
+    }
     val engine = remember(album.id) { if (album.isReal) ServiceEngine.get(context) else null }
     // Service stopped alone (swiped away while paused) across a relaunch:
     // restart the session where it stood instead of commanding a ghost.
@@ -168,12 +179,14 @@ fun NowPlayingScreen(
 
     LaunchedEffect(state) {
         onSession(state)
-        if (!album.isReal) {
+        // Fresh demo visits restore the persisted slot; an adopted live
+        // session keeps its clock. The demo ticker runs app-scoped so
+        // playback survives navigation to the mini-player.
+        if (!album.isReal && state === localState) {
             state.restore(
                 persistedTrack, persistedPosition, persistedPlaying,
                 persistedShuffle, persistedRepeat,
             )
-            state.ticker()
         }
     }
     LaunchedEffect(state.trackIndex, state.positionMs, state.isPlaying, state.shuffle, state.repeatMode) {

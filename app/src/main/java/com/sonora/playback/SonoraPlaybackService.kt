@@ -3,6 +3,7 @@ package com.sonora.playback
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.compose.runtime.snapshotFlow
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -111,6 +112,12 @@ class SonoraPlaybackService : MediaSessionService() {
         scope.launch { ensureStudio() }
         scope.launch {
             snapshotFlow { analyzer.bands }.collect { PlaybackHub.publishBands(it) }
+        }
+        scope.launch {
+            snapshotFlow { analyzer.signal }.collect { it?.let(PlaybackHub::publishVizSignal) }
+        }
+        scope.launch {
+            snapshotFlow { analyzer.active }.collect { PlaybackHub.publishVizActive(it) }
         }
         scope.launch {
             while (isActive) {
@@ -544,9 +551,12 @@ class SonoraPlaybackService : MediaSessionService() {
         publishPlaying()
         maybeStartFade()
         tickFade()
+        val tick = ++pollTicks
+        // Analyzer watch: a failed attach or stalled captures retry here.
+        if (tick % 10 == 0) analyzer.ensureAttached(front.audioSessionId, SystemClock.elapsedRealtime())
         // Position freshness for resume: a kill loses at most this window
         // on top of the event-driven saves.
-        if (++pollTicks % SNAPSHOT_TICKS == 0 && front.isPlaying) persistSnapshot()
+        if (tick % SNAPSHOT_TICKS == 0 && front.isPlaying) persistSnapshot()
     }
 
     private fun maybeStartFade() {

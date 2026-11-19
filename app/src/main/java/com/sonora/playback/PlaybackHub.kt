@@ -1,6 +1,7 @@
 package com.sonora.playback
 
 import com.sonora.liquid.Bands
+import com.sonora.liquid.VizSignal
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -28,6 +29,12 @@ object PlaybackHub {
     private val _bands = MutableStateFlow(Bands.Ambient)
     val bands: StateFlow<Bands> = _bands.asStateFlow()
 
+    private val _vizSignal = MutableStateFlow<VizSignal?>(null)
+    val vizSignal: StateFlow<VizSignal?> = _vizSignal.asStateFlow()
+
+    private val _vizActive = MutableStateFlow(false)
+    val vizActive: StateFlow<Boolean> = _vizActive.asStateFlow()
+
     private val _format = MutableStateFlow<TrackFormat?>(null)
     val format: StateFlow<TrackFormat?> = _format.asStateFlow()
 
@@ -43,6 +50,8 @@ object PlaybackHub {
         _isPlaying.value = false
         _audioSessionId.value = 0
         _bands.value = Bands.Ambient
+        _vizSignal.value = null
+        _vizActive.value = false
         _format.value = null
     }
 
@@ -60,6 +69,14 @@ object PlaybackHub {
 
     fun publishBands(value: Bands) {
         _bands.value = value
+    }
+
+    fun publishVizSignal(value: VizSignal) {
+        _vizSignal.value = value
+    }
+
+    fun publishVizActive(value: Boolean) {
+        _vizActive.value = value
     }
 
     fun publishFormat(value: TrackFormat?) {

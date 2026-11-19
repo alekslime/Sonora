@@ -1,6 +1,7 @@
 package com.sonora.liquid
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -30,7 +33,8 @@ import com.sonora.theme.SonoraShapes
 
 /**
  * M3 Liquid settings content (hosted in a bottom sheet from Now Playing):
- * visual preset, response intensity and render quality.
+ * opening equation, auto-cycle, palette preset, response intensity and
+ * render quality.
  */
 @Composable
 fun LiquidSettingsSheet(modifier: Modifier = Modifier) {
@@ -46,10 +50,60 @@ fun LiquidSettingsSheet(modifier: Modifier = Modifier) {
         Text("Liquid".uppercase(), style = type.labelCaps, color = colors.ivory)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Visualizer preset and performance",
+            "Equations, palette and performance",
             style = type.caption,
             color = colors.ivoryDim,
         )
+        Spacer(Modifier.height(16.dp))
+        Text("Equation".uppercase(), style = type.labelCaps, color = colors.ivoryFaint)
+        Spacer(Modifier.height(8.dp))
+        VizMode.entries.chunked(2).forEach { row ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                row.forEach { mode ->
+                    ModeChip(
+                        mode = mode,
+                        selected = config.mode == mode,
+                        onSelect = { LiquidConfigStore.setMode(mode) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(SonoraShapes.small)
+                .background(colors.charcoal)
+                .clickable(
+                    role = Role.Switch,
+                    onClickLabel = if (config.autoCycle) "Turn auto-cycle off" else "Turn auto-cycle on",
+                    onClick = { LiquidConfigStore.setAutoCycle(!config.autoCycle) },
+                )
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Auto-cycle equations",
+                style = type.body,
+                color = colors.ivory,
+                modifier = Modifier.weight(1f),
+            )
+            Switch(
+                checked = config.autoCycle,
+                onCheckedChange = { LiquidConfigStore.setAutoCycle(it) },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = colors.ivory,
+                    checkedTrackColor = colors.amber,
+                    uncheckedThumbColor = colors.ivoryDim,
+                    uncheckedTrackColor = colors.graphite,
+                ),
+            )
+        }
         Spacer(Modifier.height(16.dp))
         Text("Preset".uppercase(), style = type.labelCaps, color = colors.ivoryFaint)
         Spacer(Modifier.height(8.dp))
@@ -112,6 +166,34 @@ fun LiquidSettingsSheet(modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+@Composable
+private fun ModeChip(
+    mode: VizMode,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalSonoraColors.current
+    val type = LocalSonoraTypography.current
+    Text(
+        mode.label,
+        style = type.caption,
+        color = if (selected) colors.ivory else colors.ivoryDim,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center,
+        modifier = modifier
+            .clip(SonoraShapes.small)
+            .background(if (selected) colors.amber.copy(alpha = 0.18f) else colors.charcoal)
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = onSelect,
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    )
 }
 
 @Composable

@@ -6,7 +6,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
@@ -32,11 +36,12 @@ import com.sonora.theme.LocalSonoraTypography
 import kotlinx.coroutines.delay
 
 /**
- * M3 Liquid overlay. Full-screen and temporary: any new touch exits
- * immediately to Now Playing, and there are no visualizer controls to
- * operate. Bands come from the service FFT analyzer over the hub when
- * the session has an engine audio session (M6), from the mock spectrum
- * for demo playback, otherwise the ambient fallback.
+ * M3 Liquid overlay, M9 show. Full-screen and temporary: a tap returns
+ * to Now Playing, a horizontal swipe steps between equations, and the
+ * show otherwise auto-cycles with crossfades. Bands come from the
+ * service FFT analyzer over the hub when the session has an engine
+ * audio session (M6), from the mock spectrum for demo playback,
+ * otherwise the ambient fallback.
  */
 @Composable
 fun LiquidOverlay(
@@ -62,6 +67,16 @@ fun LiquidOverlay(
         Bands.Ambient
     }
 
+    val show = remember(config.mode, config.autoCycle) {
+        VizShow(config.mode, config.autoCycle)
+    }
+    LaunchedEffect(config.autoCycle) {
+        show.autoCycle = config.autoCycle
+    }
+    val density = LocalDensity.current
+    val swipeTriggerPx = remember(density) { with(density) { 48.dp.toPx() } }
+    val swipeArmPx = remember(density) { with(density) { 24.dp.toPx() } }
+
     // Hint fades away on its own; it is not a control.
     var hintVisible by remember { mutableStateOf(true) }
     val hintAlpha = remember { Animatable(1f) }
@@ -80,33 +95,64 @@ fun LiquidOverlay(
                     CustomAccessibilityAction("Close visualizer") { onExit(); true },
                 )
             }
-            .pointerInput(onExit) {
+            .pointerInput(show, onExit) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
-                    down.consume()
-                    onExit()
-                    // Swallow the rest of this gesture so the up event can
-                    // never activate a control underneath after the exit.
-                    var pressed = true
-                    while (pressed) {
+                    var totalX = 0f
+                    var totalY = 0f
+                    var swiping = false
+                    var finished = false
+                    while (!finished) {
                         val event = awaitPointerEvent()
-                        event.changes.forEach { it.consume() }
-                        pressed = event.changes.any { it.pressed }
+                        val change = event.changes.firstOrNull { it.id == down.id }
+                        if (change == null) {
+                            finished = true
+                        } else {
+                            totalX += change.position.x - change.previousPosition.x
+                            totalY += change.position.y - change.previousPosition.y
+                            if (!swiping && kotlin.math.abs(totalX) > swipeArmPx &&
+                                kotlin.math.abs(totalX) > kotlin.math.abs(totalY) * 1.5f
+                            ) {
+                                swiping = true
+                            }
+                            if (!change.pressed) {
+                                finished = true
+                                if (swiping && kotlin.math.abs(totalX) > swipeTriggerPx) {
+                                    if (totalX < 0f) show.next() else show.prev()
+                                } else if (!swiping) {
+                                    onExit()
+                                }
+                                // A short swipe is a no-op: neither a
+                                // switch nor an exit, so nothing underneath
+                                // can activate by accident.
+                            }
+                            event.changes.forEach { it.consume() }
+                        }
                     }
                 }
             },
     ) {
-        LiquidCanvas(bands = bands, config = config, motionEnabled = motionEnabled)
+        VizCanvas(show = show, bands = bands, config = config, motionEnabled = motionEnabled)
         if (hintVisible) {
-            Text(
-                "Touch anywhere to return",
-                style = type.caption,
-                color = colors.ivoryDim,
+            Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 48.dp)
                     .alpha(hintAlpha.value),
-            )
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    show.current.label.uppercase(),
+                    style = type.labelCaps,
+                    color = colors.ivory,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Touch to return · Swipe to switch",
+                    style = type.caption,
+                    color = colors.ivoryDim,
+                )
+            }
         }
     }
 }

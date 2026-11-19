@@ -29,6 +29,10 @@ data class LiquidConfig(
     /** 0..1 visual response strength. */
     val intensity: Float = 0.8f,
     val quality: LiquidQuality = LiquidQuality.HIGH,
+    /** Opening equation; the show cycles from here. */
+    val mode: VizMode = VizMode.MANDELBROT,
+    /** Auto-advance through the equations with crossfades. */
+    val autoCycle: Boolean = true,
 )
 
 /** In-memory M3 store; M5 backs it with persistent preferences. */
@@ -46,5 +50,13 @@ object LiquidConfigStore {
 
     fun setQuality(quality: LiquidQuality) {
         config = config.copy(quality = quality)
+    }
+
+    fun setMode(mode: VizMode) {
+        config = config.copy(mode = mode)
+    }
+
+    fun setAutoCycle(autoCycle: Boolean) {
+        config = config.copy(autoCycle = autoCycle)
     }
 }

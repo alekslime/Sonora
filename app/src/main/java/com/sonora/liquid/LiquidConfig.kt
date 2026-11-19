@@ -30,7 +30,7 @@ data class LiquidConfig(
     val intensity: Float = 0.8f,
     val quality: LiquidQuality = LiquidQuality.HIGH,
     /** Opening equation; the show cycles from here. */
-    val mode: VizMode = VizMode.MANDELBROT,
+    val mode: VizMode = VizMode.WAVES,
     /** Auto-advance through the equations with crossfades. */
     val autoCycle: Boolean = true,
 )

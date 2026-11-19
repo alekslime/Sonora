@@ -1,5 +1,6 @@
 package com.sonora.liquid
 
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -35,6 +36,9 @@ import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
 import kotlinx.coroutines.delay
 
+/** Live captures older than this yield to the mock signal. */
+private const val LIVE_STALE_MS = 500L
+
 /**
  * M3 Liquid overlay, M9 show. Full-screen and temporary: a tap returns
  * to Now Playing, a horizontal swipe steps between equations, and the
@@ -55,16 +59,23 @@ fun LiquidOverlay(
     val config = LiquidConfigStore.config
     BackHandler(onBack = onExit)
 
-    // Live FFT rides the hub from the service analyzer; demo playback
-    // without an engine session keeps the mock spectrum.
+    // Live signal rides the hub from the service analyzer while its
+    // captures are fresh; anything else (demo playback, dead analyzer,
+    // no session) falls back to the mock or a flat frame.
     val sessionId = session?.audioSessionId ?: 0
-    val liveBands by PlaybackHub.bands.collectAsState()
-    val bands = if (sessionId != 0) {
-        liveBands
-    } else if (session != null) {
-        MockSpectrum.sample(session.positionMs, session.isPlaying)
-    } else {
-        Bands.Ambient
+    val liveSignal by PlaybackHub.vizSignal.collectAsState()
+    val signal = run {
+        val live = liveSignal
+        if (sessionId != 0 && live != null &&
+            SystemClock.elapsedRealtime() - live.frame.atMs < LIVE_STALE_MS
+        ) {
+            return@run live
+        }
+        if (session != null) {
+            MockSpectrum.signal(session.positionMs, session.isPlaying)
+        } else {
+            VizSignal(Bands.Ambient, VizFrame.flat())
+        }
     }
 
     val show = remember(config.mode, config.autoCycle) {
@@ -132,7 +143,7 @@ fun LiquidOverlay(
                 }
             },
     ) {
-        VizCanvas(show = show, bands = bands, config = config, motionEnabled = motionEnabled)
+        VizCanvas(show = show, signal = signal, config = config, motionEnabled = motionEnabled)
         if (hintVisible) {
             Column(
                 modifier = Modifier

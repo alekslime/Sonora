@@ -6,6 +6,12 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -84,6 +90,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.sonora.components.CoverArt
+import com.sonora.components.rememberTapTick
 import com.sonora.data.Album
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.toMinSec
@@ -108,7 +116,7 @@ private val ArtShape = RoundedCornerShape(28.dp)
  * notification and lock-screen stay in sync; demo albums simulate
  * playback with a screen-local state ticker.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun NowPlayingScreen(
     album: Album,
@@ -127,6 +135,8 @@ fun NowPlayingScreen(
     adoptSession: NowPlayingState? = null,
     /** Canonical artist per track; virtual queues resolve the library. */
     artistFor: (Int) -> String = { album.artist },
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val colors = LocalSonoraColors.current
     val context = LocalContext.current
@@ -276,6 +286,8 @@ fun NowPlayingScreen(
                         modifier = Modifier
                             .fillMaxHeight()
                             .aspectRatio(1f),
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
                     )
                 }
                 Column(
@@ -321,6 +333,8 @@ fun NowPlayingScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
                         .aspectRatio(1f),
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
                 )
                 Spacer(Modifier.height(22.dp))
                 PlayerStack(
@@ -406,9 +420,10 @@ fun NowPlayingScreen(
 @Composable
 private fun ObsidianBackdrop(album: Album, modifier: Modifier = Modifier) {
     val art = rememberAlbumArtwork(album)
-    val tint = remember(album.artSeed) {
+    val tintTarget = remember(album.artSeed) {
         Color.hsv(((album.artSeed % 360 + 360) % 360).toFloat(), 0.55f, 0.20f)
     }
+    val tint by animateColorAsState(tintTarget, animationSpec = tween(600), label = "backdrop-tint")
     Box(
         modifier
             .fillMaxSize()
@@ -420,20 +435,22 @@ private fun ObsidianBackdrop(album: Album, modifier: Modifier = Modifier) {
                 ),
             ),
     ) {
-        if (art != null) {
-            Image(
-                bitmap = art,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = 1.25f
-                        scaleY = 1.25f
-                    }
-                    .blur(80.dp)
-                    .alpha(if (Build.VERSION.SDK_INT >= 31) 1f else 0.45f),
-                contentScale = ContentScale.Crop,
-            )
+        Crossfade(targetState = art, animationSpec = tween(600), label = "backdrop-art") { current ->
+            if (current != null) {
+                Image(
+                    bitmap = current,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = 1.25f
+                            scaleY = 1.25f
+                        }
+                        .blur(80.dp)
+                        .alpha(if (Build.VERSION.SDK_INT >= 31) 1f else 0.45f),
+                    contentScale = ContentScale.Crop,
+                )
+            }
         }
         Box(
             Modifier
@@ -505,8 +522,9 @@ private fun GlassCircleButton(
     modifier: Modifier = Modifier,
     icon: @Composable () -> Unit,
 ) {
+    val tick = rememberTapTick()
     Surface(
-        onClick = onClick,
+        onClick = { tick(); onClick() },
         modifier = modifier
             .size(size)
             .semantics { contentDescription = description },
@@ -519,19 +537,31 @@ private fun GlassCircleButton(
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun ObsidianArtwork(
     album: Album,
     onOpenLiquid: () -> Unit,
     modifier: Modifier = Modifier,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
-    val type = LocalSonoraTypography.current
     val art = rememberAlbumArtwork(album)
+    val heroModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+        with(sharedTransitionScope) {
+            Modifier.sharedElement(
+                rememberSharedContentState(key = "now-playing-art"),
+                animatedVisibilityScope = animatedVisibilityScope,
+            )
+        }
+    } else {
+        Modifier
+    }
     Box(
-        modifier
+        heroModifier
+            .then(modifier)
             .shadow(12.dp, ArtShape, ambientColor = Color.Black, spotColor = Color.Black)
             .clip(ArtShape)
-            .background(Color(0xFF1A1A1A))
             .clickable(
                 role = Role.Button,
                 onClickLabel = "Open Liquid visualizer",
@@ -557,20 +587,12 @@ private fun ObsidianArtwork(
             },
         contentAlignment = Alignment.Center,
     ) {
-        if (art != null) {
-            Image(
-                bitmap = art,
-                contentDescription = "Cover art for ${album.title}",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-        } else {
-            Text(
-                album.title.firstOrNull()?.uppercase() ?: "",
-                style = type.display,
-                color = Color.White.copy(alpha = 0.25f),
-            )
-        }
+        CoverArt(
+            art = art,
+            fallbackLetter = album.title.firstOrNull()?.uppercase() ?: "",
+            contentDescription = "Cover art for ${album.title}",
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 
@@ -596,7 +618,7 @@ private fun PlayerStack(
             Column(Modifier.weight(1f)) {
                 Text(
                     state.track.title,
-                    style = type.title.copy(
+                    style = type.headline.copy(
                         fontSize = 26.sp,
                         lineHeight = 30.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -740,13 +762,14 @@ private fun ObsidianTransport(
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val tick = rememberTapTick()
     Row(
         modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         Surface(
-            onClick = onPrev,
+            onClick = { tick(); onPrev() },
             modifier = Modifier
                 .size(64.dp)
                 .semantics { contentDescription = "Previous track" },
@@ -758,7 +781,7 @@ private fun ObsidianTransport(
             }
         }
         Surface(
-            onClick = onToggle,
+            onClick = { tick(); onToggle() },
             modifier = Modifier
                 .size(92.dp)
                 .semantics { contentDescription = if (isPlaying) "Pause" else "Play" },
@@ -775,7 +798,7 @@ private fun ObsidianTransport(
             }
         }
         Surface(
-            onClick = onNext,
+            onClick = { tick(); onNext() },
             modifier = Modifier
                 .size(64.dp)
                 .semantics { contentDescription = "Next track" },

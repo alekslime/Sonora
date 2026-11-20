@@ -1,6 +1,8 @@
 package com.sonora.nowplaying
 
-import androidx.compose.foundation.Image
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,12 +21,13 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import com.sonora.components.CoverArt
+import com.sonora.components.rememberTapTick
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,15 +43,29 @@ private val MiniShape = RoundedCornerShape(20.dp)
  * cover, identity, a white play disc and a progress hairline. The
  * pill expands to Now Playing; the disc toggles without leaving.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MiniPlayer(
     session: NowPlayingState,
     artistLine: String,
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val type = LocalSonoraTypography.current
     val art = rememberAlbumArtwork(session.album)
+    val tick = rememberTapTick()
+    val heroModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+        with(sharedTransitionScope) {
+            Modifier.sharedElement(
+                rememberSharedContentState(key = "now-playing-art"),
+                animatedVisibilityScope = animatedVisibilityScope,
+            )
+        }
+    } else {
+        Modifier
+    }
     Surface(
         onClick = onExpand,
         modifier = modifier
@@ -64,28 +81,13 @@ fun MiniPlayer(
                     .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    Modifier
+                CoverArt(
+                    art = art,
+                    fallbackLetter = session.album.title.firstOrNull()?.uppercase() ?: "",
+                    modifier = heroModifier
                         .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1A1A1A)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (art != null) {
-                        Image(
-                            bitmap = art,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        Text(
-                            session.album.title.firstOrNull()?.uppercase() ?: "",
-                            style = type.title,
-                            color = Color.White.copy(alpha = 0.35f),
-                        )
-                    }
-                }
+                        .clip(RoundedCornerShape(12.dp)),
+                )
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -105,7 +107,7 @@ fun MiniPlayer(
                 }
                 Spacer(Modifier.width(8.dp))
                 Surface(
-                    onClick = { session.toggle() },
+                    onClick = { tick(); session.toggle() },
                     modifier = Modifier
                         .size(44.dp)
                         .semantics {

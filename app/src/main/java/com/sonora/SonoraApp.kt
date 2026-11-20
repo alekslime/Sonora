@@ -4,10 +4,15 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -141,6 +146,7 @@ private sealed interface LibraryState {
  * The library is scanned from MediaStore once audio access is granted;
  * until then (or when empty) the mock library serves as a demo mode.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun SonoraApp() {
     SonoraTheme {
@@ -339,8 +345,9 @@ fun SonoraApp() {
                 },
             ) {
                 Box(Modifier.fillMaxSize().background(colors.obsidian)) {
-                    Column(Modifier.fillMaxSize()) {
-                        AnimatedContent(
+                    SharedTransitionLayout(Modifier.fillMaxSize()) {
+                        Column(Modifier.fillMaxSize()) {
+                            AnimatedContent(
                         targetState = current,
                         transitionSpec = {
                             (fadeIn(tween(SonoraMotion.SCREEN_MILLIS)) + scaleIn(tween(SonoraMotion.SCREEN_MILLIS), 0.985f))
@@ -469,20 +476,35 @@ fun SonoraApp() {
                                                 .firstOrNull()?.album?.artist ?: album.artist
                                         }
                                     },
+                                    sharedTransitionScope = this@SharedTransitionLayout,
+                                    animatedVisibilityScope = this,
                                 )
                             }
                         }
                     }
                         val miniSession = session
-                        if (miniSession != null && current !is Destination.NowPlaying) {
-                            MiniPlayer(
-                                session = miniSession,
-                                artistLine = rememberQueueArtist(
-                                    miniSession.album, miniSession.trackIndex, libraryAlbums,
-                                ),
-                                onExpand = ::expandPlayer,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            )
+                        AnimatedVisibility(
+                            visible = miniSession != null && current !is Destination.NowPlaying,
+                            enter = slideInVertically(
+                                animationSpec = tween(SonoraMotion.SCREEN_MILLIS),
+                                initialOffsetY = { it / 2 },
+                            ) + fadeIn(tween(SonoraMotion.SCREEN_MILLIS)),
+                            exit = slideOutVertically(
+                                animationSpec = tween(SonoraMotion.SCREEN_MILLIS),
+                            ) + fadeOut(tween(SonoraMotion.SCREEN_MILLIS)),
+                        ) {
+                            if (miniSession != null) {
+                                MiniPlayer(
+                                    session = miniSession,
+                                    artistLine = rememberQueueArtist(
+                                        miniSession.album, miniSession.trackIndex, libraryAlbums,
+                                    ),
+                                    onExpand = ::expandPlayer,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    sharedTransitionScope = this@SharedTransitionLayout,
+                                    animatedVisibilityScope = this,
+                                )
+                            }
                         }
                         when (current) {
                             Destination.Home -> ObsidianTabBar(HomeTab.HOME, ::selectTab)
@@ -491,6 +513,7 @@ fun SonoraApp() {
                             else -> Unit
                         }
                         Spacer(Modifier.navigationBarsPadding())
+                    }
                     }
                     if (studioOpen) {
                         val format by PlaybackHub.format.collectAsState()

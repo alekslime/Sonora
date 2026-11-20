@@ -40,6 +40,8 @@ object SonoraPrefs {
     private val SNAPSHOT = stringPreferencesKey("playback_snapshot")
     private val LIKED = stringPreferencesKey("liked_tracks")
     private val HISTORY = stringPreferencesKey("play_history")
+    private val PLAYLISTS = stringPreferencesKey("playlists")
+    private val STATS = stringPreferencesKey("listening_stats")
 
     suspend fun loadStudio(context: Context): AudioStudioConfig {
         val prefs = context.sonoraDataStore.data.first()
@@ -125,6 +127,30 @@ object SonoraPrefs {
     suspend fun saveHistory(context: Context, keys: List<String>) {
         context.sonoraDataStore.edit { prefs ->
             prefs[HISTORY] = com.sonora.nowplaying.PlayHistory.encode(keys)
+        }
+    }
+
+    /** M12 playlists. Reads degrade to empty. */
+    suspend fun loadPlaylists(context: Context): List<com.sonora.nowplaying.Playlist> {
+        val prefs = context.sonoraDataStore.data.first()
+        return com.sonora.nowplaying.PlaylistsStore.decode(prefs[PLAYLISTS])
+    }
+
+    suspend fun savePlaylists(context: Context, lists: List<com.sonora.nowplaying.Playlist>) {
+        context.sonoraDataStore.edit { prefs ->
+            prefs[PLAYLISTS] = com.sonora.nowplaying.PlaylistsStore.encode(lists)
+        }
+    }
+
+    /** M12 lifetime stats. Reads degrade to zeros. */
+    suspend fun loadStats(context: Context): com.sonora.nowplaying.StatsData? {
+        val prefs = context.sonoraDataStore.data.first()
+        return com.sonora.nowplaying.ListeningStats.decode(prefs[STATS])
+    }
+
+    suspend fun saveStats(context: Context) {
+        context.sonoraDataStore.edit { prefs ->
+            prefs[STATS] = com.sonora.nowplaying.ListeningStats.encode()
         }
     }
 

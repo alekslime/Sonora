@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 
-/** M3 visual presets. Each carries deep, body and accent colors. */
+/** Figma Liquid presets (Sonora Nova): deep / body / accent per preset. */
 enum class LiquidPreset(
     val label: String,
     val deep: Color,

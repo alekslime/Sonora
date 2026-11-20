@@ -19,6 +19,7 @@ tracking.
 - M10 — WMP-style signal visualizer (Waves, Bars, Scope, Storm on live waveform+spectrum), self-healing analyzer, signal readout. (done)
 - M11 — Home tab (continue, liked rail, recents), Liked tab, floating mini-player, app-scoped demo clock, play history. (done)
 - M12 — Songs/artists/playlists library, virtual cross-album queues, save panel, lifetime listening stats. (done)
+- M13 — Polish: serif display face, hero transitions, backdrop fade, shimmer covers, haptics, splash, wide adaptivity. (done)
 
 ## Build
 

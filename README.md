@@ -18,6 +18,7 @@ tracking.
 - M9 — Edge-to-edge player, math visualizer show (Mandelbrot, ribbons, polar scope, star with crossfades and swipe), Obsidian Disc icon. (done)
 - M10 — WMP-style signal visualizer (Waves, Bars, Scope, Storm on live waveform+spectrum), self-healing analyzer, signal readout. (done)
 - M11 — Home tab (continue, liked rail, recents), Liked tab, floating mini-player, app-scoped demo clock, play history. (done)
+- M12 — Songs/artists/playlists library, virtual cross-album queues, save panel, lifetime listening stats. (done)
 
 ## Build
 

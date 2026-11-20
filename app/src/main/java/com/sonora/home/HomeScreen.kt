@@ -43,6 +43,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sonora.components.CoverArt
+import com.sonora.components.rememberTapTick
 import com.sonora.data.Album
 import com.sonora.data.PlaybackSnapshot
 import com.sonora.data.rememberAlbumArtwork
@@ -269,21 +271,13 @@ private fun ContinueCard(
         Text("Continue listening".uppercase(), style = type.labelCaps, color = colors.ivoryFaint)
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
+            CoverArt(
+                art = art,
+                fallbackLetter = album.title.firstOrNull()?.uppercase() ?: "",
+                modifier = Modifier
                     .size(64.dp)
-                    .clip(SonoraShapes.small)
-                    .background(colors.graphite),
-            ) {
-                if (art != null) {
-                    Image(
-                        art,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                }
-            }
+                    .clip(SonoraShapes.small),
+            )
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(
@@ -420,22 +414,14 @@ private fun LikedCard(entry: LikedEntry, onPlay: () -> Unit) {
             .clip(SonoraShapes.small)
             .clickable(role = Role.Button, onClickLabel = "Play ${track.title}", onClick = onPlay),
     ) {
-        Box(
-            Modifier
+        CoverArt(
+            art = art,
+            fallbackLetter = entry.album.title.firstOrNull()?.uppercase() ?: "",
+            modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(SonoraShapes.small)
-                .background(colors.graphite),
-        ) {
-            if (art != null) {
-                Image(
-                    art,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            }
-        }
+                .clip(SonoraShapes.small),
+        )
         Spacer(Modifier.height(6.dp))
         Text(
             track.title,
@@ -461,16 +447,13 @@ private fun HistoryRow(entry: LikedEntry, onPlay: () -> Unit, modifier: Modifier
             .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
+        CoverArt(
+            art = art,
+            fallbackLetter = entry.album.title.firstOrNull()?.uppercase() ?: "",
+            modifier = Modifier
                 .size(48.dp)
-                .clip(SonoraShapes.extraSmall)
-                .background(colors.graphite),
-        ) {
-            if (art != null) {
-                Image(art, contentDescription = null, contentScale = ContentScale.Crop)
-            }
-        }
+                .clip(SonoraShapes.extraSmall),
+        )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
@@ -497,6 +480,7 @@ private fun HistoryRow(entry: LikedEntry, onPlay: () -> Unit, modifier: Modifier
 fun ObsidianTabBar(selected: HomeTab, onSelect: (HomeTab) -> Unit, modifier: Modifier = Modifier) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
+    val tick = rememberTapTick()
     Column(modifier.fillMaxWidth()) {
         Box(
             Modifier
@@ -518,7 +502,7 @@ fun ObsidianTabBar(selected: HomeTab, onSelect: (HomeTab) -> Unit, modifier: Mod
                         .clickable(
                             role = Role.Tab,
                             onClickLabel = "Open ${tab.label}",
-                            onClick = { onSelect(tab) },
+                            onClick = { tick(); onSelect(tab) },
                         )
                         .semantics { contentDescription = "${tab.label} tab" }
                         .padding(horizontal = 20.dp, vertical = 6.dp),

@@ -21,6 +21,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.sonora.components.CoverArt
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.toMinSec
 import com.sonora.nowplaying.LikedEntry
@@ -51,16 +52,13 @@ fun SongRow(
             .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
+        CoverArt(
+            art = art,
+            fallbackLetter = entry.album.title.firstOrNull()?.uppercase() ?: "",
+            modifier = Modifier
                 .size(52.dp)
-                .clip(SonoraShapes.extraSmall)
-                .background(colors.graphite),
-        ) {
-            if (art != null) {
-                Image(art, contentDescription = null, contentScale = ContentScale.Crop)
-            }
-        }
+                .clip(SonoraShapes.extraSmall),
+        )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(

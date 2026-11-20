@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.sonora.components.CoverArt
 import com.sonora.components.PrototypePlaybackControls
 import com.sonora.data.Album
 import com.sonora.data.Track
@@ -69,28 +71,20 @@ fun AlbumDetailScreen(
         item {
             val art = rememberAlbumArtwork(album)
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .aspectRatio(1f)
-                    .clip(SonoraShapes.medium)
-                    .background(Color(0xFF161616)),
+                modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
-                if (art != null) {
-                    Image(
-                        bitmap = art,
-                        contentDescription = "Cover art for ${album.title}",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Text(
-                        album.title.firstOrNull()?.uppercase() ?: "",
-                        style = type.display,
-                        color = colors.ivory.copy(alpha = 0.25f),
-                    )
-                }
+                CoverArt(
+                    art = art,
+                    fallbackLetter = album.title.firstOrNull()?.uppercase() ?: "",
+                    contentDescription = "Cover art for ${album.title}",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = 560.dp)
+                        .padding(horizontal = 24.dp)
+                        .aspectRatio(1f)
+                        .clip(SonoraShapes.medium),
+                )
             }
             Spacer(Modifier.height(18.dp))
         }

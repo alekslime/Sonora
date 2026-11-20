@@ -50,6 +50,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.sonora.components.CoverArt
 import com.sonora.data.Album
 import com.sonora.data.LibraryLists
 import com.sonora.data.rememberAlbumArtwork
@@ -256,7 +257,7 @@ fun BrowseScreen(
                     EmptyPane("No records match.")
                 } else if (grid) {
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
+                        columns = GridCells.Adaptive(160.dp),
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(20.dp),
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -439,16 +440,13 @@ private fun ArtistRow(name: String, subtitle: String, album: Album, onOpen: () -
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
+        CoverArt(
+            art = art,
+            fallbackLetter = name.firstOrNull()?.uppercase() ?: "",
+            modifier = Modifier
                 .size(52.dp)
-                .clip(CircleShape)
-                .background(colors.graphite),
-        ) {
-            if (art != null) {
-                Image(art, contentDescription = null, contentScale = ContentScale.Crop)
-            }
-        }
+                .clip(CircleShape),
+        )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
@@ -497,16 +495,13 @@ private fun ListRow(album: Album, onOpen: () -> Unit) {
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
+        CoverArt(
+            art = art,
+            fallbackLetter = album.title.firstOrNull()?.uppercase() ?: "",
+            modifier = Modifier
                 .size(56.dp)
-                .clip(SonoraShapes.extraSmall)
-                .background(colors.graphite),
-        ) {
-            if (art != null) {
-                Image(art, contentDescription = null, contentScale = ContentScale.Crop)
-            }
-        }
+                .clip(SonoraShapes.extraSmall),
+        )
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(
@@ -537,22 +532,14 @@ private fun GridCell(album: Album, onOpen: () -> Unit) {
             .clip(SonoraShapes.small)
             .clickable(role = Role.Button, onClickLabel = "Open ${album.title}", onClick = onOpen),
     ) {
-        Box(
-            Modifier
+        CoverArt(
+            art = art,
+            fallbackLetter = album.title.firstOrNull()?.uppercase() ?: "",
+            modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(SonoraShapes.small)
-                .background(colors.graphite),
-        ) {
-            if (art != null) {
-                Image(
-                    art,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            }
-        }
+                .clip(SonoraShapes.small),
+        )
         Spacer(Modifier.height(8.dp))
         Text(
             album.title,

@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
+import com.sonora.components.CoverArt
 import com.sonora.data.ArtistEntry
 import com.sonora.data.LibraryLists
 import com.sonora.data.rememberAlbumArtwork
@@ -89,21 +90,13 @@ fun ArtistDetailScreen(
                     .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    Modifier
+                CoverArt(
+                    art = art,
+                    fallbackLetter = entry.name.firstOrNull()?.uppercase() ?: "",
+                    modifier = Modifier
                         .size(112.dp)
-                        .clip(SonoraShapes.medium)
-                        .background(colors.graphite),
-                ) {
-                    if (art != null) {
-                        Image(
-                            art,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                    }
-                }
+                        .clip(SonoraShapes.medium),
+                )
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
                     Text(

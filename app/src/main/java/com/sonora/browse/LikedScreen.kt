@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.sonora.components.CoverArt
 import com.sonora.data.Album
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.toMinSec
@@ -135,16 +136,13 @@ private fun LikedRow(entry: LikedEntry, onPlay: () -> Unit, onToggleLike: () -> 
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
+        CoverArt(
+            art = art,
+            fallbackLetter = entry.album.title.firstOrNull()?.uppercase() ?: "",
+            modifier = Modifier
                 .size(56.dp)
-                .clip(SonoraShapes.extraSmall)
-                .background(colors.graphite),
-        ) {
-            if (art != null) {
-                Image(art, contentDescription = null, contentScale = ContentScale.Crop)
-            }
-        }
+                .clip(SonoraShapes.extraSmall),
+        )
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(

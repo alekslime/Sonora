@@ -5,13 +5,14 @@ import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
 /**
- * M0 shapes. Deliberately restrained radii: sleeves are near-square
- * physical objects, not bubbly cards.
+ * Sonora Nova shapes — twin of Figma radius tokens:
+ * sm 12 (chips/thumbs), md 20 (cards), lg 28 (sheets/hero),
+ * xl 36 (cover art). Soft by default, never bubbly.
  */
 val SonoraShapes = Shapes(
-    extraSmall = RoundedCornerShape(3.dp),
-    small = RoundedCornerShape(5.dp),
-    medium = RoundedCornerShape(8.dp),
-    large = RoundedCornerShape(12.dp),
-    extraLarge = RoundedCornerShape(16.dp),
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(28.dp),
+    extraLarge = RoundedCornerShape(36.dp),
 )

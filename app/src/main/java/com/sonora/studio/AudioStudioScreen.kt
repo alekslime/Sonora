@@ -106,11 +106,15 @@ fun AudioStudioScreen(
             GestureSection()
             Spacer(Modifier.height(16.dp))
             Text(
-                "Every setting shapes the playing audio live.",
-                style = LocalSonoraTypography.current.caption,
-                color = colors.ivoryFaint,
+                "Every setting shapes the playing audio live",
+                style = LocalSonoraTypography.current.labelCaps,
+                color = colors.ivory,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(SonoraShapes.large)
+                    .background(colors.coral)
+                    .padding(vertical = 16.dp),
             )
         }
     }

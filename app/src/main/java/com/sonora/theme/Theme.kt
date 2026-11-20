@@ -9,11 +9,11 @@ import androidx.compose.runtime.remember
 
 private fun SonoraColors.toMaterialScheme() = darkColorScheme(
     primary = amber,
-    onPrimary = obsidian,
+    onPrimary = ivory,
     primaryContainer = amberDeep,
     onPrimaryContainer = ivory,
-    secondary = ivoryDim,
-    onSecondary = obsidian,
+    secondary = coral,
+    onSecondary = ivory,
     background = obsidian,
     onBackground = ivory,
     surface = charcoal,

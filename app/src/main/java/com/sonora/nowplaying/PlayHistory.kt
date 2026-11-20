@@ -27,14 +27,7 @@ object PlayHistory {
 
     /** Resolves keys in recency order, dropping vanished songs. Pure. */
     fun resolve(albums: List<Album>): List<LikedEntry> {
-        if (entries.isEmpty()) return emptyList()
-        val byKey = mutableMapOf<String, LikedEntry>()
-        albums.forEach { album ->
-            album.tracks.indices.forEach { index ->
-                byKey[LikedStore.keyFor(album, index)] = LikedEntry(album, index)
-            }
-        }
-        return entries.mapNotNull { byKey[it] }
+        return LikedStore.resolveOrdered(entries, albums)
     }
 
     fun encode(keys: List<String>): String = keys.joinToString("\n")

@@ -125,6 +125,8 @@ fun NowPlayingScreen(
      * restore runs; otherwise a fresh local state starts the visit.
      */
     adoptSession: NowPlayingState? = null,
+    /** Canonical artist per track; virtual queues resolve the library. */
+    artistFor: (Int) -> String = { album.artist },
 ) {
     val colors = LocalSonoraColors.current
     val context = LocalContext.current
@@ -235,6 +237,7 @@ fun NowPlayingScreen(
     var liquidSheetOpen by rememberSaveable { mutableStateOf(false) }
     var queueOpen by rememberSaveable { mutableStateOf(false) }
     var optionsOpen by rememberSaveable { mutableStateOf(false) }
+    var plusOpen by rememberSaveable { mutableStateOf(false) }
     val format by PlaybackHub.format.collectAsState()
     val likedKey = remember(album.id, state.trackIndex) {
         LikedStore.keyFor(album, state.trackIndex)
@@ -293,12 +296,13 @@ fun NowPlayingScreen(
                         state = state,
                         format = format,
                         liked = liked,
-                        likedKey = likedKey,
                         demo = !album.isReal,
                         onOpenOptions = { optionsOpen = true },
                         onOpenLiquid = onOpenLiquid,
                         onOpenQueue = { queueOpen = true },
                         onOpenStudio = onOpenStudio,
+                        onOpenPlus = { plusOpen = true },
+                        artistFor = artistFor,
                     )
                 }
             }
@@ -323,13 +327,14 @@ fun NowPlayingScreen(
                     state = state,
                     format = format,
                     liked = liked,
-                    likedKey = likedKey,
                     demo = !album.isReal,
                     fillTransportGap = true,
                     onOpenOptions = { optionsOpen = true },
                     onOpenLiquid = onOpenLiquid,
                     onOpenQueue = { queueOpen = true },
                     onOpenStudio = onOpenStudio,
+                    onOpenPlus = { plusOpen = true },
+                    artistFor = artistFor,
                     modifier = Modifier.padding(horizontal = 28.dp),
                 )
                 Spacer(Modifier.height(26.dp))
@@ -365,6 +370,19 @@ fun NowPlayingScreen(
                         optionsOpen = false
                         liquidSheetOpen = true
                     },
+                )
+            }
+        }
+        if (plusOpen) {
+            ModalBottomSheet(
+                onDismissRequest = { plusOpen = false },
+                containerColor = colors.charcoal,
+                contentColor = colors.ivory,
+            ) {
+                PlusSheet(
+                    trackKey = likedKey,
+                    isLiked = liked,
+                    onToggleLike = { LikedStore.toggle(likedKey) },
                 )
             }
         }
@@ -561,16 +579,18 @@ private fun PlayerStack(
     state: NowPlayingState,
     format: TrackFormat?,
     liked: Boolean,
-    likedKey: String,
     demo: Boolean,
     onOpenOptions: () -> Unit,
     onOpenLiquid: () -> Unit,
     onOpenQueue: () -> Unit,
     onOpenStudio: () -> Unit,
+    onOpenPlus: () -> Unit,
+    artistFor: (Int) -> String,
     modifier: Modifier = Modifier,
     fillTransportGap: Boolean = false,
 ) {
     val type = LocalSonoraTypography.current
+    val artistLine = remember(state.album.id, state.trackIndex) { artistFor(state.trackIndex) }
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -587,7 +607,7 @@ private fun PlayerStack(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    state.album.artist,
+                    artistLine,
                     style = type.body.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
                     color = Color.White.copy(alpha = 0.6f),
                     maxLines = 1,
@@ -647,7 +667,7 @@ private fun PlayerStack(
         ObsidianActionRow(
             liked = liked,
             onOpenLiquid = onOpenLiquid,
-            onToggleLike = { LikedStore.toggle(likedKey) },
+            onOpenPlus = onOpenPlus,
             onOpenQueue = onOpenQueue,
             onOpenStudio = onOpenStudio,
         )
@@ -773,7 +793,7 @@ private fun ObsidianTransport(
 private fun ObsidianActionRow(
     liked: Boolean,
     onOpenLiquid: () -> Unit,
-    onToggleLike: () -> Unit,
+    onOpenPlus: () -> Unit,
     onOpenQueue: () -> Unit,
     onOpenStudio: () -> Unit,
     modifier: Modifier = Modifier,
@@ -787,8 +807,8 @@ private fun ObsidianActionRow(
             Icon(Icons.Filled.FormatQuote, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
         }
         GlassCircleButton(
-            onClick = onToggleLike,
-            description = if (liked) "Liked" else "Add to liked songs",
+            onClick = onOpenPlus,
+            description = "Save options",
             size = 64.dp,
         ) {
             Icon(

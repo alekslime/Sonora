@@ -33,11 +33,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
+import com.sonora.browse.ArtistDetailScreen
 import com.sonora.browse.BrowseScreen
 import com.sonora.browse.EmptyLibraryScreen
 import com.sonora.browse.LibraryGateScreen
 import com.sonora.browse.LikedScreen
+import com.sonora.browse.PlaylistDetailScreen
 import com.sonora.data.Album
+import com.sonora.data.LibraryLists
 import com.sonora.data.MediaLibrary
 import com.sonora.data.MockLibrary
 import com.sonora.data.PlaybackSnapshot
@@ -55,10 +58,18 @@ import com.sonora.gesture.isAssistiveTouchActive
 import com.sonora.liquid.LiquidOverlay
 import com.sonora.nowplaying.LikedEntry
 import com.sonora.nowplaying.LikedStore
+import com.sonora.nowplaying.ListeningStats
 import com.sonora.nowplaying.MiniPlayer
 import com.sonora.nowplaying.NowPlayingScreen
 import com.sonora.nowplaying.NowPlayingState
 import com.sonora.nowplaying.PlayHistory
+import com.sonora.nowplaying.PlaylistsStore
+import com.sonora.nowplaying.QueueIds
+import com.sonora.nowplaying.QueueSpec
+import com.sonora.nowplaying.QueueSpecs
+import com.sonora.nowplaying.buildQueueAlbum
+import com.sonora.nowplaying.rebuildQueue
+import com.sonora.nowplaying.rememberQueueArtist
 import com.sonora.playback.PlaybackHub
 import com.sonora.playback.PlaybackOrchestrator
 import com.sonora.studio.AudioStudioScreen
@@ -74,6 +85,8 @@ private sealed interface Destination {
     data object Browse : Destination
     data object Liked : Destination
     data class Detail(val albumId: String) : Destination
+    data class ArtistPage(val name: String) : Destination
+    data class PlaylistPage(val id: String) : Destination
     data class NowPlaying(val albumId: String, val startTrackIndex: Int) : Destination
 }
 
@@ -84,6 +97,8 @@ private val DestinationSaver = Saver<Destination, String>(
             Destination.Browse -> "browse"
             Destination.Liked -> "liked"
             is Destination.Detail -> "detail:${it.albumId}"
+            is Destination.ArtistPage -> "artist:${it.name}"
+            is Destination.PlaylistPage -> "playlist:${it.id}"
             is Destination.NowPlaying -> "nowplaying:${it.albumId}:${it.startTrackIndex}"
         }
     },
@@ -93,6 +108,8 @@ private val DestinationSaver = Saver<Destination, String>(
             route == "browse" || route == "shelf" -> Destination.Browse
             route == "liked" -> Destination.Liked
             route.startsWith("detail:") -> Destination.Detail(route.removePrefix("detail:"))
+            route.startsWith("artist:") -> Destination.ArtistPage(route.removePrefix("artist:"))
+            route.startsWith("playlist:") -> Destination.PlaylistPage(route.removePrefix("playlist:"))
             route.startsWith("nowplaying:") -> {
                 val parts = route.removePrefix("nowplaying:").split(":")
                 Destination.NowPlaying(parts[0], parts.getOrNull(1)?.toIntOrNull() ?: 0)
@@ -155,11 +172,17 @@ fun SonoraApp() {
             GestureConfigStore.replace(SonoraPrefs.loadGestures(appContext))
             LikedStore.replace(SonoraPrefs.loadLiked(appContext))
             PlayHistory.replace(SonoraPrefs.loadHistory(appContext))
+            PlaylistsStore.replace(SonoraPrefs.loadPlaylists(appContext))
+            SonoraPrefs.loadStats(appContext)?.let {
+                ListeningStats.replace(it.plays, it.ms, it.artists, it.tracks)
+            }
             snapshot = SonoraPrefs.loadSnapshot(appContext)
             launch { snapshotFlow { AudioStudioStore.config }.collect { SonoraPrefs.saveStudio(appContext, it) } }
             launch { snapshotFlow { GestureConfigStore.config }.collect { SonoraPrefs.saveGestures(appContext, it) } }
             launch { snapshotFlow { LikedStore.liked }.collect { SonoraPrefs.saveLiked(appContext, it) } }
             launch { snapshotFlow { PlayHistory.entries }.collect { SonoraPrefs.saveHistory(appContext, it) } }
+            launch { snapshotFlow { PlaylistsStore.lists }.collect { SonoraPrefs.savePlaylists(appContext, it) } }
+            launch { snapshotFlow { ListeningStats.totalPlays }.collect { SonoraPrefs.saveStats(appContext) } }
             refreshLibrary()
         }
 
@@ -181,13 +204,20 @@ fun SonoraApp() {
         // by the service engine instead.
         LaunchedEffect(session) {
             val active = session ?: return@LaunchedEffect
-            PlayHistory.record(LikedStore.keyFor(active.album, active.trackIndex))
+            fun note() {
+                val key = LikedStore.keyFor(active.album, active.trackIndex)
+                PlayHistory.record(key)
+                val artist = LikedStore.resolveOrdered(listOf(key), libraryAlbums ?: emptyList())
+                    .firstOrNull()?.album?.artist ?: active.album.artist
+                ListeningStats.record(artist, key, active.track.durationMs)
+            }
+            note()
             var lastIndex = active.trackIndex
             if (!active.album.isReal) launch { active.ticker() }
             snapshotFlow { active.trackIndex }.collect {
                 if (it != lastIndex) {
                     lastIndex = it
-                    PlayHistory.record(LikedStore.keyFor(active.album, it))
+                    note()
                 }
             }
         }
@@ -222,22 +252,41 @@ fun SonoraApp() {
                 PlaybackOrchestrator.state?.pause()
             }
         }
-        fun playEntry(entry: LikedEntry) {
-            val album = entry.album
+        fun playQueue(
+            entry: LikedEntry,
+            context: List<LikedEntry>,
+            spec: QueueSpec,
+            shuffle: Boolean = false,
+        ) {
+            if (context.isEmpty()) return
+            val tapped = LikedStore.keyFor(entry.album, entry.trackIndex)
+            val at = context.indexOfFirst {
+                LikedStore.keyFor(it.album, it.trackIndex) == tapped
+            }.coerceAtLeast(0)
+            val start = if (shuffle && context.size > 1) {
+                var pick = at
+                while (pick == at) pick = Random.nextInt(context.size)
+                pick
+            } else {
+                at
+            }
+            val album = buildQueueAlbum(spec, context)
             if (album.isReal) {
                 pauseOtherSource(startingReal = true)
-                PlaybackOrchestrator.startAlbum(appContext, album, entry.trackIndex)
+                PlaybackOrchestrator.startAlbum(appContext, album, start, shuffle = shuffle)
             } else {
                 pauseOtherSource(startingReal = false)
             }
-            push(Destination.NowPlaying(album.id, entry.trackIndex))
+            push(Destination.NowPlaying(album.id, start))
         }
+        var resumedVirtual by remember { mutableStateOf<Album?>(null) }
         fun resumeSnapshot(album: Album, trackIndex: Int, positionMs: Long, shuffle: Boolean) {
             pauseOtherSource(startingReal = true)
             PlaybackOrchestrator.startAlbum(
                 appContext, album, trackIndex,
                 positionMs = positionMs, playing = true, shuffle = shuffle,
             )
+            resumedVirtual = album
             push(Destination.NowPlaying(album.id, trackIndex))
         }
         fun expandPlayer() {
@@ -263,6 +312,13 @@ fun SonoraApp() {
             fun resolveAlbum(id: String): Album {
                 libraryAlbums.firstOrNull { it.id == id }?.let { return it }
                 session?.album?.takeIf { it.id == id }?.let { return it }
+                resumedVirtual?.takeIf { it.id == id }?.let { return it }
+                if (QueueIds.isQueue(id)) {
+                    rebuildQueue(
+                        id, libraryAlbums, LikedStore.liked,
+                        PlaylistsStore.lists, PlayHistory.entries,
+                    )?.let { return it }
+                }
                 return libraryAlbums.first()
             }
             val exitDemo: (() -> Unit)? = if (isDemo) {
@@ -304,7 +360,7 @@ fun SonoraApp() {
                                 onExitDemo = exitDemo,
                                 onResumeSession = ::expandPlayer,
                                 onResumeSnapshot = ::resumeSnapshot,
-                                onPlayEntry = ::playEntry,
+                                onPlayQueue = ::playQueue,
                                 onOpenLiked = { selectTab(HomeTab.LIKED) },
                                 onOpenLibrary = { selectTab(HomeTab.LIBRARY) },
                             )
@@ -313,11 +369,58 @@ fun SonoraApp() {
                                 onOpenAlbum = { push(Destination.Detail(it.id)) },
                                 demo = isDemo,
                                 onExitDemo = exitDemo,
+                                onPlaySong = { entry, context ->
+                                    playQueue(entry, context, QueueSpecs.all(context.size))
+                                },
+                                onOpenArtist = { push(Destination.ArtistPage(it)) },
+                                onOpenPlaylist = { push(Destination.PlaylistPage(it)) },
                             )
-                            Destination.Liked -> LikedScreen(
-                                albums = libraryAlbums,
-                                onPlayEntry = ::playEntry,
-                            )
+                            Destination.Liked -> {
+                                LikedScreen(
+                                    albums = libraryAlbums,
+                                    onPlayQueue = { entry, context ->
+                                        playQueue(entry, context, QueueSpecs.liked(context.size))
+                                    },
+                                )
+                            }
+                            is Destination.ArtistPage -> {
+                                val entry = LibraryLists.artists(libraryAlbums)
+                                    .firstOrNull { it.name == destination.name }
+                                if (entry == null) {
+                                    LaunchedEffect(destination.name) { pop() }
+                                } else {
+                                    val spec = QueueSpecs.artist(entry.name, entry.songCount)
+                                    ArtistDetailScreen(
+                                        entry = entry,
+                                        onBack = ::pop,
+                                        onPlayAll = { playQueue(it.first(), it, spec) },
+                                        onShuffle = { playQueue(it.first(), it, spec, shuffle = true) },
+                                        onPlaySong = { song, context -> playQueue(song, context, spec) },
+                                    )
+                                }
+                            }
+                            is Destination.PlaylistPage -> {
+                                val playlist = PlaylistsStore.lists.firstOrNull { it.id == destination.id }
+                                if (playlist == null) {
+                                    LaunchedEffect(destination.id) { pop() }
+                                } else {
+                                    val songs = LikedStore.resolveOrdered(playlist.keys, libraryAlbums)
+                                    val spec = QueueSpecs.playlist(playlist.id, playlist.name, songs.size)
+                                    PlaylistDetailScreen(
+                                        playlist = playlist,
+                                        albums = libraryAlbums,
+                                        onBack = ::pop,
+                                        onPlayAll = { playQueue(it.first(), it, spec) },
+                                        onShuffle = { playQueue(it.first(), it, spec, shuffle = true) },
+                                        onPlaySong = { song, context -> playQueue(song, context, spec) },
+                                        onRemove = { PlaylistsStore.removeTrack(playlist.id, it) },
+                                        onDelete = {
+                                            PlaylistsStore.delete(playlist.id)
+                                            pop()
+                                        },
+                                    )
+                                }
+                            }
                             is Destination.Detail -> {
                                 val album = resolveAlbum(destination.albumId)
                                 AlbumDetailScreen(
@@ -357,6 +460,15 @@ fun SonoraApp() {
                                     onOpenStudio = { studioOpen = true },
                                     onSession = { session = it },
                                     adoptSession = session,
+                                    artistFor = { index ->
+                                        if (!QueueIds.isQueue(album.id)) {
+                                            album.artist
+                                        } else {
+                                            val key = LikedStore.keyFor(album, index)
+                                            LikedStore.resolveOrdered(listOf(key), libraryAlbums)
+                                                .firstOrNull()?.album?.artist ?: album.artist
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -365,6 +477,9 @@ fun SonoraApp() {
                         if (miniSession != null && current !is Destination.NowPlaying) {
                             MiniPlayer(
                                 session = miniSession,
+                                artistLine = rememberQueueArtist(
+                                    miniSession.album, miniSession.trackIndex, libraryAlbums,
+                                ),
                                 onExpand = ::expandPlayer,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                             )

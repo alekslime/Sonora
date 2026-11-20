@@ -49,8 +49,12 @@ import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.toMinSec
 import com.sonora.nowplaying.LikedEntry
 import com.sonora.nowplaying.LikedStore
+import com.sonora.nowplaying.ListeningStats
 import com.sonora.nowplaying.NowPlayingState
 import com.sonora.nowplaying.PlayHistory
+import com.sonora.nowplaying.QueueSpec
+import com.sonora.nowplaying.QueueSpecs
+import com.sonora.nowplaying.rememberQueueArtist
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
 import com.sonora.theme.SonoraShapes
@@ -75,7 +79,7 @@ fun HomeScreen(
     onExitDemo: (() -> Unit)?,
     onResumeSession: () -> Unit,
     onResumeSnapshot: (album: Album, trackIndex: Int, positionMs: Long, shuffle: Boolean) -> Unit,
-    onPlayEntry: (LikedEntry) -> Unit,
+    onPlayQueue: (entry: LikedEntry, context: List<LikedEntry>, spec: QueueSpec) -> Unit,
     onOpenLiked: () -> Unit,
     onOpenLibrary: () -> Unit,
     modifier: Modifier = Modifier,
@@ -83,7 +87,9 @@ fun HomeScreen(
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     val liked = LikedStore.resolve(LikedStore.liked, albums)
-    val recent = PlayHistory.resolve(albums).take(8)
+    val recentAll = PlayHistory.resolve(albums)
+    val recent = recentAll.take(8)
+    val stats = ListeningStats.summary()
     val snapshotAlbum = rememberSnapshotAlbum(snapshot, albums)
     LazyColumn(
         modifier = modifier
@@ -129,6 +135,7 @@ fun HomeScreen(
                 ContinueCard(
                     album = session.album,
                     trackTitle = session.track.title,
+                    artistLine = rememberQueueArtist(session.album, session.trackIndex, albums),
                     fraction = session.fraction,
                     onResume = onResumeSession,
                     modifier = Modifier.padding(horizontal = 20.dp),
@@ -167,7 +174,10 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(liked.take(12), key = { LikedStore.keyFor(it.album, it.trackIndex) }) { entry ->
-                        LikedCard(entry = entry, onPlay = { onPlayEntry(entry) })
+                        LikedCard(
+                            entry = entry,
+                            onPlay = { onPlayQueue(entry, liked, QueueSpecs.liked(liked.size)) },
+                        )
                     }
                 }
                 Spacer(Modifier.height(20.dp))
@@ -186,11 +196,20 @@ fun HomeScreen(
             items(recent, key = { LikedStore.keyFor(it.album, it.trackIndex) }) { entry ->
                 HistoryRow(
                     entry = entry,
-                    onPlay = { onPlayEntry(entry) },
+                    onPlay = { onPlayQueue(entry, recentAll, QueueSpecs.recent(recentAll.size)) },
                     modifier = Modifier.padding(horizontal = 20.dp),
                 )
             }
             item { Spacer(Modifier.height(20.dp)) }
+        }
+        if (stats.totalPlays > 0) {
+            item {
+                StatsCard(
+                    albums = albums,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                )
+                Spacer(Modifier.height(20.dp))
+            }
         }
         item {
             Row(
@@ -234,6 +253,7 @@ private fun ContinueCard(
     fraction: Float,
     onResume: () -> Unit,
     modifier: Modifier = Modifier,
+    artistLine: String = album.artist,
 ) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
@@ -274,7 +294,7 @@ private fun ContinueCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    album.artist,
+                    artistLine,
                     style = type.caption,
                     color = colors.ivoryDim,
                     maxLines = 1,
@@ -307,6 +327,56 @@ private fun ContinueCard(
             ) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.Black, modifier = Modifier.size(26.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun StatsCard(albums: List<Album>, modifier: Modifier = Modifier) {
+    val colors = LocalSonoraColors.current
+    val type = LocalSonoraTypography.current
+    val stats = ListeningStats.summary()
+    val topTrack = stats.topTrackKey?.let { key ->
+        LikedStore.resolveOrdered(listOf(key), albums).firstOrNull()
+    }
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(SonoraShapes.medium)
+            .background(Color.White.copy(alpha = 0.07f))
+            .padding(16.dp),
+    ) {
+        Text("Your stats".uppercase(), style = type.labelCaps, color = colors.ivoryFaint)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            ListeningStats.formatDuration(stats.totalMs),
+            style = type.display,
+            color = colors.ivory,
+        )
+        Text(
+            if (stats.totalPlays == 1) "1 play" else "${stats.totalPlays} plays",
+            style = type.caption,
+            color = colors.ivoryDim,
+        )
+        Spacer(Modifier.height(10.dp))
+        stats.topArtists.forEachIndexed { i, artist ->
+            Text(
+                "${i + 1}. ${artist.name}  •  ${artist.plays}",
+                style = type.body,
+                color = colors.ivory,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (topTrack != null) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Top track: ${topTrack.album.tracks[topTrack.trackIndex].title}",
+                style = type.caption,
+                color = colors.ivoryDim,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

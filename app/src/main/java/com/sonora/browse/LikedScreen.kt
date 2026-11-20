@@ -52,7 +52,7 @@ import com.sonora.theme.SonoraShapes
 @Composable
 fun LikedScreen(
     albums: List<Album>,
-    onPlayEntry: (LikedEntry) -> Unit,
+    onPlayQueue: (entry: LikedEntry, context: List<LikedEntry>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalSonoraColors.current
@@ -111,7 +111,7 @@ fun LikedScreen(
             items(entries, key = { LikedStore.keyFor(it.album, it.trackIndex) }) { entry ->
                 LikedRow(
                     entry = entry,
-                    onPlay = { onPlayEntry(entry) },
+                    onPlay = { onPlayQueue(entry, entries) },
                     onToggleLike = {
                         LikedStore.toggle(LikedStore.keyFor(entry.album, entry.trackIndex))
                     },

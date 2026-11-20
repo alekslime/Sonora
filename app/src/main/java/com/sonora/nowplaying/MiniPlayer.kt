@@ -43,6 +43,7 @@ private val MiniShape = RoundedCornerShape(20.dp)
 @Composable
 fun MiniPlayer(
     session: NowPlayingState,
+    artistLine: String,
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -95,7 +96,7 @@ fun MiniPlayer(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        session.album.artist,
+                        artistLine,
                         style = type.caption,
                         color = Color.White.copy(alpha = 0.6f),
                         maxLines = 1,

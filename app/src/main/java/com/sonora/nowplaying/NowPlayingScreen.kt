@@ -67,8 +67,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
@@ -94,6 +92,7 @@ import com.sonora.components.CoverArt
 import com.sonora.components.rememberTapTick
 import com.sonora.data.Album
 import com.sonora.data.rememberAlbumArtwork
+import com.sonora.data.rememberBackdropArtwork
 import com.sonora.data.toMinSec
 import com.sonora.liquid.LiquidSettingsSheet
 import com.sonora.playback.PlaybackHub
@@ -419,7 +418,8 @@ fun NowPlayingScreen(
  */
 @Composable
 private fun ObsidianBackdrop(album: Album, modifier: Modifier = Modifier) {
-    val art = rememberAlbumArtwork(album)
+    // Pre-blurred once per album off-thread: no GPU blur in the frame path.
+    val art = rememberBackdropArtwork(album)
     val tintTarget = remember(album.artSeed) {
         Color.hsv(((album.artSeed % 360 + 360) % 360).toFloat(), 0.55f, 0.20f)
     }
@@ -445,9 +445,7 @@ private fun ObsidianBackdrop(album: Album, modifier: Modifier = Modifier) {
                         .graphicsLayer {
                             scaleX = 1.25f
                             scaleY = 1.25f
-                        }
-                        .blur(80.dp)
-                        .alpha(if (Build.VERSION.SDK_INT >= 31) 1f else 0.45f),
+                        },
                     contentScale = ContentScale.Crop,
                 )
             }
@@ -643,37 +641,12 @@ private fun PlayerStack(
         }
         Spacer(Modifier.height(20.dp))
         ObsidianSeekBar(
-            fraction = state.fraction,
+            state = state,
             onSeek = { state.seekTo((it * state.durationMs).toLong()) },
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                state.positionMs.toMinSec(),
-                style = type.caption.copy(fontSize = 12.sp),
-                color = Color.White.copy(alpha = 0.6f),
-            )
-            Spacer(Modifier.weight(1f))
-            Icon(
-                Icons.Filled.GraphicEq,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.6f),
-                modifier = Modifier.size(14.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                formatBadge(format),
-                style = type.caption.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium),
-                color = Color.White.copy(alpha = 0.6f),
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                "-${(state.durationMs - state.positionMs).toMinSec()}",
-                style = type.caption.copy(fontSize = 12.sp),
-                color = Color.White.copy(alpha = 0.6f),
-            )
-        }
+        TimeRow(state = state, badge = formatBadge(format))
         if (fillTransportGap) {
             Spacer(Modifier.weight(1f))
         } else {
@@ -715,7 +688,40 @@ private fun formatBadge(format: TrackFormat?): String {
 }
 
 @Composable
-private fun ObsidianSeekBar(fraction: Float, onSeek: (Float) -> Unit, modifier: Modifier = Modifier) {
+private fun TimeRow(state: NowPlayingState, badge: String, modifier: Modifier = Modifier) {
+    val type = LocalSonoraTypography.current
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            state.positionMs.toMinSec(),
+            style = type.caption.copy(fontSize = 12.sp),
+            color = Color.White.copy(alpha = 0.6f),
+        )
+        Spacer(Modifier.weight(1f))
+        Icon(
+            Icons.Filled.GraphicEq,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.6f),
+            modifier = Modifier.size(14.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            badge,
+            style = type.caption.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium),
+            color = Color.White.copy(alpha = 0.6f),
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            "-${(state.durationMs - state.positionMs).toMinSec()}",
+            style = type.caption.copy(fontSize = 12.sp),
+            color = Color.White.copy(alpha = 0.6f),
+        )
+    }
+}
+
+@Composable
+private fun ObsidianSeekBar(state: NowPlayingState, onSeek: (Float) -> Unit, modifier: Modifier = Modifier) {
+    // Reads the clock here so the player body skips per-tick recomposition.
+    val fraction = state.fraction
     BoxWithConstraints(modifier.height(32.dp)) {
         val widthPx = constraints.maxWidth.toFloat()
         Box(

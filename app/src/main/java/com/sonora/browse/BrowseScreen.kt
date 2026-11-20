@@ -22,12 +22,18 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -45,7 +51,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonora.data.Album
+import com.sonora.data.LibraryLists
 import com.sonora.data.rememberAlbumArtwork
+import com.sonora.nowplaying.LikedEntry
+import com.sonora.nowplaying.PlaylistsStore
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
 import com.sonora.theme.SonoraShapes
@@ -56,9 +65,17 @@ private enum class SortMode(val label: String) {
     YEAR("Year"),
 }
 
+private enum class LibraryPane(val label: String) {
+    TRACKS("Tracks"),
+    ALBUMS("Albums"),
+    ARTISTS("Artists"),
+    PLAYLISTS("Playlists"),
+}
+
 /**
- * Library home: search, sort and list/grid views over the collection.
- * In demo mode a pill offers the way back to the on-device library.
+ * Library tab: Winamp-style Tracks / Albums / Artists / Playlists
+ * panes over the collection, with search and playlist creation.
+ * Song taps play inside the visible list as the queue.
  */
 @Composable
 fun BrowseScreen(
@@ -67,14 +84,19 @@ fun BrowseScreen(
     modifier: Modifier = Modifier,
     demo: Boolean = false,
     onExitDemo: (() -> Unit)? = null,
+    onPlaySong: (entry: LikedEntry, context: List<LikedEntry>) -> Unit = { _, _ -> },
+    onOpenArtist: (String) -> Unit = {},
+    onOpenPlaylist: (String) -> Unit = {},
 ) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     var query by rememberSaveable { mutableStateOf("") }
     var sort by rememberSaveable { mutableStateOf(SortMode.TITLE) }
     var grid by rememberSaveable { mutableStateOf(false) }
+    var pane by rememberSaveable { mutableStateOf(LibraryPane.TRACKS) }
+    var naming by rememberSaveable { mutableStateOf(false) }
 
-    val visible = albums
+    val visibleAlbums = albums
         .filter {
             query.isBlank() ||
                 it.title.contains(query, ignoreCase = true) ||
@@ -87,6 +109,18 @@ fun BrowseScreen(
                 SortMode.YEAR -> list.sortedByDescending { it.year }
             }
         }
+    val visibleSongs = LibraryLists.allSongs(albums).filter {
+        query.isBlank() ||
+            it.album.tracks[it.trackIndex].title.contains(query, ignoreCase = true) ||
+            it.album.artist.contains(query, ignoreCase = true) ||
+            it.album.title.contains(query, ignoreCase = true)
+    }
+    val visibleArtists = LibraryLists.artists(albums).filter {
+        query.isBlank() || it.name.contains(query, ignoreCase = true)
+    }
+    val playlists = PlaylistsStore.lists.filter {
+        query.isBlank() || it.name.contains(query, ignoreCase = true)
+    }
 
     Column(
         modifier = modifier
@@ -103,7 +137,7 @@ fun BrowseScreen(
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    if (demo) "Demo  •  ${visible.size} records" else "${visible.size} records  •  on this device",
+                    if (demo) "Demo  •  ${albums.size} records" else "${albums.size} records  •  on this device",
                     style = type.caption,
                     color = colors.ivoryDim,
                 )
@@ -123,13 +157,45 @@ fun BrowseScreen(
             }
         }
 
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            LibraryPane.entries.forEach { entry ->
+                FilterChip(
+                    selected = pane == entry,
+                    onClick = { pane = entry },
+                    label = { Text(entry.label, style = type.caption) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = Color.White.copy(alpha = 0.06f),
+                        labelColor = colors.ivoryDim,
+                        selectedContainerColor = Color.White,
+                        selectedLabelColor = Color.Black,
+                    ),
+                )
+            }
+        }
+
         TextField(
             value = query,
             onValueChange = { query = it },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 8.dp),
-            placeholder = { Text("Search title or artist", style = type.body, color = colors.ivoryFaint) },
+            placeholder = {
+                Text(
+                    when (pane) {
+                        LibraryPane.TRACKS -> "Search songs"
+                        LibraryPane.ALBUMS -> "Search title or artist"
+                        LibraryPane.ARTISTS -> "Search artists"
+                        LibraryPane.PLAYLISTS -> "Search playlists"
+                    },
+                    style = type.body,
+                    color = colors.ivoryFaint,
+                )
+            },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = colors.ivoryDim) },
             singleLine = true,
             shape = SonoraShapes.large,
@@ -144,59 +210,257 @@ fun BrowseScreen(
             ),
         )
 
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            SortMode.entries.forEach { mode ->
-                FilterChip(
-                    selected = sort == mode,
-                    onClick = { sort = mode },
-                    label = { Text(mode.label, style = type.caption) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        containerColor = Color.White.copy(alpha = 0.06f),
-                        labelColor = colors.ivoryDim,
-                        selectedContainerColor = Color.White,
-                        selectedLabelColor = Color.Black,
-                    ),
-                )
+        when (pane) {
+            LibraryPane.TRACKS -> {
+                if (visibleSongs.isEmpty()) {
+                    EmptyPane("No songs match.")
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                    ) {
+                        items(visibleSongs, key = { "${it.album.id}#${it.trackIndex}" }) { entry ->
+                            SongRow(
+                                entry = entry,
+                                onPlay = { onPlaySong(entry, visibleSongs) },
+                            )
+                        }
+                    }
+                }
             }
-            Spacer(Modifier.weight(1f))
-            ViewToggle(grid = grid, onToggle = { grid = it })
+            LibraryPane.ALBUMS -> {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SortMode.entries.forEach { mode ->
+                        FilterChip(
+                            selected = sort == mode,
+                            onClick = { sort = mode },
+                            label = { Text(mode.label, style = type.caption) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = Color.White.copy(alpha = 0.06f),
+                                labelColor = colors.ivoryDim,
+                                selectedContainerColor = Color.White,
+                                selectedLabelColor = Color.Black,
+                            ),
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    ViewToggle(grid = grid, onToggle = { grid = it })
+                }
+                if (visibleAlbums.isEmpty()) {
+                    EmptyPane("No records match.")
+                } else if (grid) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp),
+                    ) {
+                        items(visibleAlbums, key = { it.id }) { album ->
+                            GridCell(album = album, onOpen = { onOpenAlbum(album) })
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        items(visibleAlbums, key = { it.id }) { album ->
+                            ListRow(album = album, onOpen = { onOpenAlbum(album) })
+                        }
+                    }
+                }
+            }
+            LibraryPane.ARTISTS -> {
+                if (visibleArtists.isEmpty()) {
+                    EmptyPane("No artists match.")
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                    ) {
+                        items(visibleArtists, key = { it.name }) { artist ->
+                            ArtistRow(
+                                name = artist.name,
+                                subtitle = "${artist.songCount} songs  •  " +
+                                    if (artist.albums.size == 1) "1 album" else "${artist.albums.size} albums",
+                                album = artist.albums.first(),
+                                onOpen = { onOpenArtist(artist.name) },
+                            )
+                        }
+                    }
+                }
+            }
+            LibraryPane.PLAYLISTS -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                ) {
+                    item {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(SonoraShapes.small)
+                                .background(Color.White.copy(alpha = 0.07f))
+                                .clickable(role = Role.Button, onClickLabel = "New playlist", onClick = { naming = true })
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = null, tint = colors.ivory, modifier = Modifier.size(22.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text("New playlist", style = type.body, color = colors.ivory)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    if (playlists.isEmpty() && query.isBlank()) {
+                        item {
+                            Text(
+                                "Playlists you make live here.",
+                                style = type.body,
+                                color = colors.ivoryDim,
+                                modifier = Modifier.padding(vertical = 16.dp),
+                            )
+                        }
+                    }
+                    items(playlists, key = { it.id }) { playlist ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(SonoraShapes.small)
+                                .clickable(role = Role.Button, onClickLabel = "Open ${playlist.name}", onClick = { onOpenPlaylist(playlist.id) })
+                                .padding(vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(52.dp)
+                                    .clip(SonoraShapes.extraSmall)
+                                    .background(Color.White.copy(alpha = 0.08f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(Icons.Filled.QueueMusic, contentDescription = null, tint = colors.ivoryDim, modifier = Modifier.size(26.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    playlist.name,
+                                    style = type.body,
+                                    color = colors.ivory,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    if (playlist.keys.size == 1) "1 song" else "${playlist.keys.size} songs",
+                                    style = type.caption,
+                                    color = colors.ivoryDim,
+                                )
+                            }
+                            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = colors.ivoryFaint)
+                        }
+                    }
+                }
+            }
         }
+    }
+    if (naming) {
+        NewPlaylistDialog(
+            onConfirm = { PlaylistsStore.create(it); naming = false },
+            onDismiss = { naming = false },
+        )
+    }
+}
 
-        if (visible.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No records match.", style = type.body, color = colors.ivoryDim)
+@Composable
+private fun EmptyPane(message: String) {
+    val type = LocalSonoraTypography.current
+    val colors = LocalSonoraColors.current
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(message, style = type.body, color = colors.ivoryDim)
+    }
+}
+
+@Composable
+private fun NewPlaylistDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    val colors = LocalSonoraColors.current
+    val type = LocalSonoraTypography.current
+    var draft by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.charcoal,
+        title = { Text("New playlist", style = type.title, color = colors.ivory) },
+        text = {
+            TextField(
+                value = draft,
+                onValueChange = { draft = it },
+                placeholder = { Text("Playlist name", style = type.body) },
+                singleLine = true,
+                shape = SonoraShapes.small,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    focusedTextColor = colors.ivory,
+                    unfocusedTextColor = colors.ivory,
+                    cursorColor = colors.ivory,
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(draft) }, enabled = draft.isNotBlank()) {
+                Text("Create", style = type.labelCaps, color = colors.ivory)
             }
-            return
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", style = type.labelCaps, color = colors.ivoryDim)
+            }
+        },
+    )
+}
+
+@Composable
+private fun ArtistRow(name: String, subtitle: String, album: Album, onOpen: () -> Unit) {
+    val colors = LocalSonoraColors.current
+    val type = LocalSonoraTypography.current
+    val art = rememberAlbumArtwork(album)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(SonoraShapes.small)
+            .clickable(role = Role.Button, onClickLabel = "Open $name", onClick = onOpen)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(colors.graphite),
+        ) {
+            if (art != null) {
+                Image(art, contentDescription = null, contentScale = ContentScale.Crop)
+            }
         }
-        if (grid) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(20.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
-            ) {
-                items(visible, key = { it.id }) { album ->
-                    GridCell(album = album, onOpen = { onOpenAlbum(album) })
-                }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                items(visible, key = { it.id }) { album ->
-                    ListRow(album = album, onOpen = { onOpenAlbum(album) })
-                }
-            }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                name,
+                style = type.body,
+                color = colors.ivory,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(subtitle, style = type.caption, color = colors.ivoryDim, maxLines = 1)
         }
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = colors.ivoryFaint)
     }
 }
 

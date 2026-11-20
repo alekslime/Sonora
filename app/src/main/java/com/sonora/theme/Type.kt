@@ -8,57 +8,60 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * M0 typography. Offline-safe platform families with a record-label voice:
- * serif display, neutral grotesque UI text, wide-tracked caps labels,
- * monospace for time/technical readouts.
+ * Sonora Nova typography — twin of the Figma Sonora text styles.
+ * Display face is Space Grotesk in Figma; on-device it resolves to
+ * the platform grotesque (bundled-font hook: see SonoraFonts) with
+ * the same ramp: Display 32/36 Bold -0.6, Headline 24/29 Medium,
+ * Title 17 ExtraBold-ish, Body 15 Medium, caps labels + mono.
  */
 @Immutable
 data class SonoraTypography(
     val display: TextStyle = TextStyle(
-        fontFamily = FontFamily.Serif,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 30.sp,
-        lineHeight = 34.sp,
-        letterSpacing = (-0.5).sp,
+        fontFamily = SonoraFonts.display,
+        fontWeight = FontWeight.Bold,
+        fontSize = 32.sp,
+        lineHeight = 36.sp,
+        letterSpacing = (-0.6).sp,
     ),
     val headline: TextStyle = TextStyle(
-        fontFamily = FontFamily.Serif,
+        fontFamily = SonoraFonts.display,
         fontWeight = FontWeight.Medium,
-        fontSize = 22.sp,
-        lineHeight = 26.sp,
+        fontSize = 24.sp,
+        lineHeight = 29.sp,
+        letterSpacing = (-0.4).sp,
     ),
     val title: TextStyle = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = SonoraFonts.ui,
+        fontWeight = FontWeight.ExtraBold,
         fontSize = 17.sp,
         lineHeight = 22.sp,
         letterSpacing = (-0.2).sp,
     ),
     val body: TextStyle = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Normal,
+        fontFamily = SonoraFonts.ui,
+        fontWeight = FontWeight.Medium,
         fontSize = 15.sp,
         lineHeight = 21.sp,
     ),
     val caption: TextStyle = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Normal,
+        fontFamily = SonoraFonts.ui,
+        fontWeight = FontWeight.Medium,
         fontSize = 13.sp,
         lineHeight = 17.sp,
     ),
     /** Small caps labels: apply .uppercase() at the call site. */
     val labelCaps: TextStyle = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Medium,
+        fontFamily = SonoraFonts.ui,
+        fontWeight = FontWeight.ExtraBold,
         fontSize = 11.sp,
         lineHeight = 14.sp,
-        letterSpacing = 2.sp,
+        letterSpacing = 1.8.sp,
     ),
     val mono: TextStyle = TextStyle(
         fontFamily = FontFamily.Monospace,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 17.sp,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
     ),
 )
 

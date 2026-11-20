@@ -81,4 +81,13 @@ class LikedSongsTest {
         assertTrue(LikedStore.resolve(setOf("x#0"), listOf(album())).isEmpty())
         assertTrue(LikedStore.resolve(setOf("a1#1"), emptyList()).isEmpty())
     }
+
+    @Test
+    fun keyPrefersOriginOverQueueScope() {
+        val queued = album().copy(
+            id = "queue/all",
+            tracks = listOf(Track(1, "Demo", 180_000L, originKey = "a1#1")),
+        )
+        assertEquals("a1#1", LikedStore.keyFor(queued, 0))
+    }
 }

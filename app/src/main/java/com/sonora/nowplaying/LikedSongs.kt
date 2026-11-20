@@ -26,7 +26,10 @@ object LikedStore {
     }
 
     fun keyFor(album: Album, trackIndex: Int): String {
-        album.tracks.getOrNull(trackIndex)?.uri?.let { return it }
+        album.tracks.getOrNull(trackIndex)?.let { track ->
+            track.uri?.let { return it }
+            track.originKey?.let { return it }
+        }
         return "${album.id}#$trackIndex"
     }
 
@@ -50,6 +53,21 @@ object LikedStore {
                 if (keyFor(album, index) in keys) LikedEntry(album, index) else null
             }
         }
+    }
+
+    /**
+     * Resolves keys in the given order (playlists, history), dropping
+     * vanished songs. Pure.
+     */
+    fun resolveOrdered(keys: List<String>, albums: List<Album>): List<LikedEntry> {
+        if (keys.isEmpty()) return emptyList()
+        val byKey = mutableMapOf<String, LikedEntry>()
+        albums.forEach { album ->
+            album.tracks.indices.forEach { index ->
+                byKey[keyFor(album, index)] = LikedEntry(album, index)
+            }
+        }
+        return keys.mapNotNull { byKey[it] }
     }
 }
 

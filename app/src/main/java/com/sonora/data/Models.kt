@@ -7,6 +7,12 @@ data class Track(
     val durationMs: Long,
     /** Content URI string for real (M5) tracks; null for mock/demo tracks. */
     val uri: String? = null,
+    /**
+     * Canonical liked/history key for virtual-queue tracks (M12), so
+     * hearts and playlists resolve against the library album instead
+     * of the queue. Null everywhere else.
+     */
+    val originKey: String? = null,
 )
 
 /** An album in the library (mock for M1 demo, MediaStore-backed for M5). */

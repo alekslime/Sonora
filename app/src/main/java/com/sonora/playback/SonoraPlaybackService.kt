@@ -480,6 +480,8 @@ class SonoraPlaybackService : MediaSessionService() {
             // Unplayable track: let policy advance past it. A fully dead
             // library walks to the tail and stops on its own.
             cancelFade()
+            val deadIndex = if (singleQueue) currentAlbumIndex() else front.currentMediaItemIndex
+            PlaybackHub.emitSkipped(queueTitles.getOrNull(deadIndex) ?: "Track")
             PlaybackHub.emitEnded()
         }
 

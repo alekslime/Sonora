@@ -11,9 +11,13 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -59,6 +63,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -75,9 +80,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -91,6 +100,7 @@ import androidx.core.content.ContextCompat
 import com.sonora.components.CoverArt
 import com.sonora.components.rememberTapTick
 import com.sonora.data.Album
+import com.sonora.data.averageColor
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.rememberBackdropArtwork
 import com.sonora.data.toMinSec
@@ -102,6 +112,9 @@ import com.sonora.playback.TrackFormat
 import com.sonora.studio.AudioStudioStore
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
+import com.sonora.theme.content
+import com.sonora.theme.contentInverse
+import com.sonora.theme.frost
 
 private val ArtShape = RoundedCornerShape(28.dp)
 
@@ -162,6 +175,8 @@ fun NowPlayingScreen(
         }
     }
     val localState = remember(album.id, startTrackIndex) { NowPlayingState(album, startTrackIndex) }
+    val heroArt = rememberAlbumArtwork(album)
+    val glassTint = remember(heroArt) { heroArt?.let(::averageColor) }
     val orchestrated = PlaybackOrchestrator.state
     val adopted = adoptSession?.takeIf { !album.isReal && it.album.id == album.id }
     val state = if (album.isReal && orchestrated?.album?.id == album.id) {
@@ -301,6 +316,7 @@ fun NowPlayingScreen(
                         liked = liked,
                         onBack = onBack,
                         onToggleLike = { LikedStore.toggle(likedKey) },
+                        tint = glassTint,
                     )
                     Spacer(Modifier.height(12.dp))
                     PlayerStack(
@@ -314,6 +330,7 @@ fun NowPlayingScreen(
                         onOpenStudio = onOpenStudio,
                         onOpenPlus = { plusOpen = true },
                         artistFor = artistFor,
+                        tint = glassTint,
                     )
                 }
             }
@@ -323,6 +340,7 @@ fun NowPlayingScreen(
                     liked = liked,
                     onBack = onBack,
                     onToggleLike = { LikedStore.toggle(likedKey) },
+                    tint = glassTint,
                 )
                 Spacer(Modifier.height(8.dp))
                 ObsidianArtwork(
@@ -348,6 +366,7 @@ fun NowPlayingScreen(
                     onOpenStudio = onOpenStudio,
                     onOpenPlus = { plusOpen = true },
                     artistFor = artistFor,
+                    tint = glassTint,
                     modifier = Modifier.padding(horizontal = 28.dp),
                 )
                 Spacer(Modifier.height(26.dp))
@@ -420,18 +439,22 @@ fun NowPlayingScreen(
 private fun ObsidianBackdrop(album: Album, modifier: Modifier = Modifier) {
     // Pre-blurred once per album off-thread: no GPU blur in the frame path.
     val art = rememberBackdropArtwork(album)
-    val tintTarget = remember(album.artSeed) {
-        Color.hsv(((album.artSeed % 360 + 360) % 360).toFloat(), 0.55f, 0.20f)
+    val colors = LocalSonoraColors.current
+    val light = colors.isLight
+    val tintTarget = remember(album.artSeed, light) {
+        val hue = ((album.artSeed % 360 + 360) % 360).toFloat()
+        if (light) Color.hsv(hue, 0.30f, 0.92f) else Color.hsv(hue, 0.55f, 0.20f)
     }
     val tint by animateColorAsState(tintTarget, animationSpec = tween(600), label = "backdrop-tint")
+    val scrim = if (light) Color.White else Color.Black
     Box(
         modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
                     0f to tint,
-                    0.5f to Color(0xFF0B0B10),
-                    1f to Color.Black,
+                    0.5f to if (light) Color(0xFFF8F4EC) else Color(0xFF0B0B10),
+                    1f to if (light) colors.abyss else Color.Black,
                 ),
             ),
     ) {
@@ -455,9 +478,9 @@ private fun ObsidianBackdrop(album: Album, modifier: Modifier = Modifier) {
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0f to Color.Black.copy(alpha = 0.28f),
-                        0.45f to Color.Black.copy(alpha = 0.42f),
-                        1f to Color.Black.copy(alpha = 0.72f),
+                        0f to scrim.copy(alpha = 0.28f),
+                        0.45f to scrim.copy(alpha = 0.42f),
+                        1f to scrim.copy(alpha = 0.72f),
                     ),
                 ),
         )
@@ -470,8 +493,17 @@ private fun ObsidianTopBar(
     onBack: () -> Unit,
     onToggleLike: () -> Unit,
     modifier: Modifier = Modifier,
+    tint: Color? = null,
 ) {
     val type = LocalSonoraTypography.current
+    val colors = LocalSonoraColors.current
+    val pop = remember { Animatable(1f) }
+    LaunchedEffect(liked) {
+        if (liked) {
+            pop.snapTo(1.35f)
+            pop.animateTo(1f, spring(dampingRatio = 0.5f))
+        }
+    }
     Row(
         modifier
             .fillMaxWidth()
@@ -479,8 +511,8 @@ private fun ObsidianTopBar(
             .padding(start = 20.dp, end = 20.dp, top = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        GlassCircleButton(onClick = onBack, description = "Close player", size = 52.dp) {
-            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+        GlassCircleButton(onClick = onBack, description = "Close player", size = 52.dp, tint = tint) {
+            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = colors.content, modifier = Modifier.size(28.dp))
         }
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             Text(
@@ -490,19 +522,25 @@ private fun ObsidianTopBar(
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 0.5.sp,
                 ),
-                color = Color.White.copy(alpha = 0.85f),
+                color = colors.content.copy(alpha = 0.85f),
             )
         }
         GlassCircleButton(
             onClick = onToggleLike,
             description = if (liked) "Unlike this song" else "Like this song",
             size = 52.dp,
+            tint = tint,
         ) {
             Icon(
                 if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                 contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(24.dp),
+                tint = colors.content,
+                modifier = Modifier
+                    .size(24.dp)
+                    .graphicsLayer {
+                        scaleX = pop.value
+                        scaleY = pop.value
+                    },
             )
         }
     }
@@ -518,16 +556,20 @@ private fun GlassCircleButton(
     description: String,
     size: Dp,
     modifier: Modifier = Modifier,
+    tint: Color? = null,
     icon: @Composable () -> Unit,
 ) {
     val tick = rememberTapTick()
+    val colors = LocalSonoraColors.current
+    val fill = tint?.let { lerp(colors.frost, it.copy(alpha = colors.frost.alpha), 0.45f) }
+        ?: colors.frost
     Surface(
         onClick = { tick(); onClick() },
         modifier = modifier
             .size(size)
             .semantics { contentDescription = description },
         shape = CircleShape,
-        color = Color.White.copy(alpha = 0.14f),
+        color = fill,
     ) {
         Box(contentAlignment = Alignment.Center) {
             icon()
@@ -594,6 +636,7 @@ private fun ObsidianArtwork(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PlayerStack(
     state: NowPlayingState,
@@ -606,10 +649,12 @@ private fun PlayerStack(
     onOpenStudio: () -> Unit,
     onOpenPlus: () -> Unit,
     artistFor: (Int) -> String,
+    tint: Color? = null,
     modifier: Modifier = Modifier,
     fillTransportGap: Boolean = false,
 ) {
     val type = LocalSonoraTypography.current
+    val colors = LocalSonoraColors.current
     val artistLine = remember(state.album.id, state.trackIndex) { artistFor(state.trackIndex) }
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -621,22 +666,23 @@ private fun PlayerStack(
                         lineHeight = 30.sp,
                         fontWeight = FontWeight.SemiBold,
                     ),
-                    color = Color.White,
+                    color = colors.content,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE),
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     artistLine,
                     style = type.body.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = colors.content.copy(alpha = 0.6f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.width(12.dp))
-            GlassCircleButton(onClick = onOpenOptions, description = "More options", size = 52.dp) {
-                Icon(Icons.Filled.MoreVert, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+            GlassCircleButton(onClick = onOpenOptions, description = "More options", size = 52.dp, tint = tint) {
+                Icon(Icons.Filled.MoreVert, contentDescription = null, tint = colors.content, modifier = Modifier.size(24.dp))
             }
         }
         Spacer(Modifier.height(20.dp))
@@ -665,13 +711,14 @@ private fun PlayerStack(
             onOpenPlus = onOpenPlus,
             onOpenQueue = onOpenQueue,
             onOpenStudio = onOpenStudio,
+            tint = tint,
         )
         if (demo) {
             Spacer(Modifier.height(12.dp))
             Text(
                 "Demo playback — allow library access to hear your music.",
                 style = type.caption.copy(fontSize = 12.sp),
-                color = Color.White.copy(alpha = 0.45f),
+                color = colors.content.copy(alpha = 0.45f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -690,30 +737,31 @@ private fun formatBadge(format: TrackFormat?): String {
 @Composable
 private fun TimeRow(state: NowPlayingState, badge: String, modifier: Modifier = Modifier) {
     val type = LocalSonoraTypography.current
+    val colors = LocalSonoraColors.current
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             state.positionMs.toMinSec(),
             style = type.caption.copy(fontSize = 12.sp),
-            color = Color.White.copy(alpha = 0.6f),
+            color = colors.content.copy(alpha = 0.6f),
         )
         Spacer(Modifier.weight(1f))
         Icon(
             Icons.Filled.GraphicEq,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.6f),
+            tint = colors.content.copy(alpha = 0.6f),
             modifier = Modifier.size(14.dp),
         )
         Spacer(Modifier.width(4.dp))
         Text(
             badge,
             style = type.caption.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium),
-            color = Color.White.copy(alpha = 0.6f),
+            color = colors.content.copy(alpha = 0.6f),
         )
         Spacer(Modifier.weight(1f))
         Text(
             "-${(state.durationMs - state.positionMs).toMinSec()}",
             style = type.caption.copy(fontSize = 12.sp),
-            color = Color.White.copy(alpha = 0.6f),
+            color = colors.content.copy(alpha = 0.6f),
         )
     }
 }
@@ -722,40 +770,76 @@ private fun TimeRow(state: NowPlayingState, badge: String, modifier: Modifier = 
 private fun ObsidianSeekBar(state: NowPlayingState, onSeek: (Float) -> Unit, modifier: Modifier = Modifier) {
     // Reads the clock here so the player body skips per-tick recomposition.
     val fraction = state.fraction
-    BoxWithConstraints(modifier.height(32.dp)) {
-        val widthPx = constraints.maxWidth.toFloat()
-        Box(
-            Modifier
-                .fillMaxSize()
-                .pointerInput("tap", widthPx) {
-                    detectTapGestures { offset ->
-                        onSeek((offset.x / widthPx).coerceIn(0f, 1f))
-                    }
+    val colors = LocalSonoraColors.current
+    val type = LocalSonoraTypography.current
+    val density = LocalDensity.current
+    var scrubbing by remember { mutableStateOf(false) }
+    var scrubFraction by remember { mutableFloatStateOf(fraction) }
+    Column(modifier.fillMaxWidth()) {
+        BoxWithConstraints(Modifier.fillMaxWidth().height(26.dp)) {
+            if (scrubbing) {
+                val bubbleW = with(density) { 72.dp.toPx() }
+                val x = (scrubFraction * constraints.maxWidth - bubbleW / 2)
+                    .coerceIn(0f, (constraints.maxWidth - bubbleW).coerceAtLeast(0f))
+                Box(
+                    Modifier
+                        .offset { IntOffset(x.toInt(), 0) }
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.frost)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                ) {
+                    Text(
+                        (scrubFraction * state.durationMs).toLong().toMinSec(),
+                        style = type.mono,
+                        color = colors.content,
+                    )
                 }
-                .pointerInput("drag", widthPx) {
-                    detectHorizontalDragGestures { change, _ ->
-                        onSeek((change.position.x / widthPx).coerceIn(0f, 1f))
-                        change.consume()
-                    }
-                }
-                .semantics { contentDescription = "Seek" },
-            contentAlignment = Alignment.CenterStart,
-        ) {
+            }
+        }
+        BoxWithConstraints(Modifier.fillMaxWidth().height(32.dp)) {
+            val widthPx = constraints.maxWidth.toFloat()
             Box(
                 Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.22f)),
-            )
-            Box(
-                Modifier
-                    .fillMaxWidth(fraction.coerceIn(0f, 1f))
-                    .height(4.dp)
-                    .shadow(6.dp, CircleShape, ambientColor = Color.White.copy(alpha = 0.5f))
-                    .clip(CircleShape)
-                    .background(Color.White),
-            )
+                    .fillMaxSize()
+                    .pointerInput("tap", widthPx) {
+                        detectTapGestures { offset ->
+                            onSeek((offset.x / widthPx).coerceIn(0f, 1f))
+                        }
+                    }
+                    .pointerInput("drag", widthPx) {
+                        detectHorizontalDragGestures(
+                            onDragStart = {
+                                scrubbing = true
+                                scrubFraction = fraction
+                            },
+                            onDragEnd = { scrubbing = false },
+                            onDragCancel = { scrubbing = false },
+                        ) { change, _ ->
+                            val f = (change.position.x / widthPx).coerceIn(0f, 1f)
+                            scrubFraction = f
+                            onSeek(f)
+                            change.consume()
+                        }
+                    }
+                    .semantics { contentDescription = "Seek" },
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(colors.content.copy(alpha = 0.22f)),
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth(fraction.coerceIn(0f, 1f))
+                        .height(4.dp)
+                        .shadow(6.dp, CircleShape, ambientColor = colors.content.copy(alpha = 0.5f))
+                        .clip(CircleShape)
+                        .background(colors.content),
+                )
+            }
         }
     }
 }
@@ -769,6 +853,7 @@ private fun ObsidianTransport(
     modifier: Modifier = Modifier,
 ) {
     val tick = rememberTapTick()
+    val colors = LocalSonoraColors.current
     Row(
         modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -783,7 +868,7 @@ private fun ObsidianTransport(
             color = Color.Transparent,
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.FastRewind, contentDescription = null, tint = Color.White, modifier = Modifier.size(46.dp))
+                Icon(Icons.Filled.FastRewind, contentDescription = null, tint = colors.content, modifier = Modifier.size(46.dp))
             }
         }
         Surface(
@@ -792,13 +877,13 @@ private fun ObsidianTransport(
                 .size(92.dp)
                 .semantics { contentDescription = if (isPlaying) "Pause" else "Play" },
             shape = CircleShape,
-            color = Color.White,
+            color = colors.content,
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = null,
-                    tint = Color.Black,
+                    tint = colors.contentInverse,
                     modifier = Modifier.size(44.dp),
                 )
             }
@@ -812,7 +897,7 @@ private fun ObsidianTransport(
             color = Color.Transparent,
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.FastForward, contentDescription = null, tint = Color.White, modifier = Modifier.size(46.dp))
+                Icon(Icons.Filled.FastForward, contentDescription = null, tint = colors.content, modifier = Modifier.size(46.dp))
             }
         }
     }
@@ -826,32 +911,35 @@ private fun ObsidianActionRow(
     onOpenQueue: () -> Unit,
     onOpenStudio: () -> Unit,
     modifier: Modifier = Modifier,
+    tint: Color? = null,
 ) {
+    val colors = LocalSonoraColors.current
     Row(
         modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        GlassCircleButton(onClick = onOpenLiquid, description = "Open Liquid visualizer", size = 64.dp) {
-            Icon(Icons.Filled.FormatQuote, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+        GlassCircleButton(onClick = onOpenLiquid, description = "Open Liquid visualizer", size = 64.dp, tint = tint) {
+            Icon(Icons.Filled.FormatQuote, contentDescription = null, tint = colors.content, modifier = Modifier.size(26.dp))
         }
         GlassCircleButton(
             onClick = onOpenPlus,
             description = "Save options",
             size = 64.dp,
+            tint = tint,
         ) {
             Icon(
                 if (liked) Icons.Filled.Check else Icons.Filled.Add,
                 contentDescription = null,
-                tint = Color.White,
+                tint = colors.content,
                 modifier = Modifier.size(28.dp),
             )
         }
-        GlassCircleButton(onClick = onOpenQueue, description = "Open queue", size = 64.dp) {
-            Icon(Icons.Filled.List, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+        GlassCircleButton(onClick = onOpenQueue, description = "Open queue", size = 64.dp, tint = tint) {
+            Icon(Icons.Filled.List, contentDescription = null, tint = colors.content, modifier = Modifier.size(26.dp))
         }
-        GlassCircleButton(onClick = onOpenStudio, description = "Open Audio Studio", size = 64.dp) {
-            Icon(Icons.Filled.Tune, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+        GlassCircleButton(onClick = onOpenStudio, description = "Open Audio Studio", size = 64.dp, tint = tint) {
+            Icon(Icons.Filled.Tune, contentDescription = null, tint = colors.content, modifier = Modifier.size(26.dp))
         }
     }
 }

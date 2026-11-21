@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -155,13 +156,14 @@ fun LiquidOverlay(
                 Text(
                     show.current.label.uppercase(),
                     style = type.labelCaps,
-                    color = colors.ivory,
+                    // Fixed light: the visualizer stage stays dark in both themes.
+                    color = Color.White.copy(alpha = 0.9f),
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Touch to return · Swipe to switch",
                     style = type.caption,
-                    color = colors.ivoryDim,
+                    color = Color.White.copy(alpha = 0.6f),
                 )
             }
         }

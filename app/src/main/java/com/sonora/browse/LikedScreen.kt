@@ -16,7 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -27,7 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -36,6 +37,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonora.components.CoverArt
+import com.sonora.components.FastScroller
+import com.sonora.components.RowEnter
+import com.sonora.components.SwipeLike
 import com.sonora.data.Album
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.toMinSec
@@ -43,6 +47,7 @@ import com.sonora.nowplaying.LikedEntry
 import com.sonora.nowplaying.LikedStore
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
+import com.sonora.theme.content
 import com.sonora.theme.SonoraShapes
 
 /**
@@ -105,28 +110,57 @@ fun LikedScreen(
             }
             return
         }
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-        ) {
-            items(entries, key = { LikedStore.keyFor(it.album, it.trackIndex) }) { entry ->
-                LikedRow(
-                    entry = entry,
-                    onPlay = { onPlayQueue(entry, entries) },
-                    onToggleLike = {
-                        LikedStore.toggle(LikedStore.keyFor(entry.album, entry.trackIndex))
-                    },
-                )
+        val listState = rememberLazyListState()
+        Box(Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+            ) {
+                itemsIndexed(entries, key = { _, entry -> LikedStore.keyFor(entry.album, entry.trackIndex) }) { index, entry ->
+                    LikedRow(
+                        entry = entry,
+                        onPlay = { onPlayQueue(entry, entries) },
+                        onToggleLike = {
+                            LikedStore.toggle(LikedStore.keyFor(entry.album, entry.trackIndex))
+                        },
+                        enterIndex = index,
+                    )
+                }
             }
+            FastScroller(listState, sectionFor = {
+                entries.getOrNull(it)?.let { entry ->
+                    entry.album.tracks[entry.trackIndex].title.firstOrNull()?.uppercase() ?: ""
+                } ?: ""
+            })
         }
     }
 }
 
 @Composable
-private fun LikedRow(entry: LikedEntry, onPlay: () -> Unit, onToggleLike: () -> Unit) {
+private fun LikedRow(
+    entry: LikedEntry,
+    onPlay: () -> Unit,
+    onToggleLike: () -> Unit,
+    enterIndex: Int = 0,
+) {
+    val art = rememberAlbumArtwork(entry.album)
+    RowEnter(enterIndex) {
+        SwipeLike(liked = true, onToggle = onToggleLike) {
+            LikedRowContent(entry = entry, art = art, onPlay = onPlay, onToggleLike = onToggleLike)
+        }
+    }
+}
+
+@Composable
+private fun LikedRowContent(
+    entry: LikedEntry,
+    art: ImageBitmap?,
+    onPlay: () -> Unit,
+    onToggleLike: () -> Unit,
+) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
-    val art = rememberAlbumArtwork(entry.album)
     val track = entry.album.tracks[entry.trackIndex]
     Row(
         Modifier
@@ -171,7 +205,7 @@ private fun LikedRow(entry: LikedEntry, onPlay: () -> Unit, onToggleLike: () -> 
             Icon(
                 Icons.Filled.Favorite,
                 contentDescription = null,
-                tint = Color.White,
+                tint = colors.content,
                 modifier = Modifier.size(22.dp),
             )
         }

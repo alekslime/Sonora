@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
  */
 @Immutable
 data class SonoraColors(
+    val isLight: Boolean = false,
     /** Canvas — Figma color/canvas, ink/950. */
     val obsidian: Color = Color(0xFF07070C),
     /** Gradient end / deepest. */
@@ -48,6 +49,41 @@ data class SonoraColors(
     val accent: Color get() = amber
     /** Semantic alias: Coral energy colour. */
     val energy: Color get() = coral
+
+    companion object {
+        /** Warm paper light scheme in the same voice. */
+        fun light() = SonoraColors(
+            isLight = true,
+            obsidian = Color(0xFFF5F1E8),
+            abyss = Color(0xFFE8E2D4),
+            charcoal = Color(0xFFFFFFFF),
+            graphite = Color(0xFFEDE8DD),
+            ivory = Color(0xFF1C1A17),
+            ivoryDim = Color(0xFF6F695E),
+            ivoryFaint = Color(0xFFA8A094),
+            hairline = Color(0xFFDCD5C4),
+        )
+    }
 }
 
 val LocalSonoraColors = staticCompositionLocalOf { SonoraColors() }
+
+/** Primary on-glass content: white in dark, ink in light. */
+val SonoraColors.content: Color
+    get() = if (isLight) Color(0xFF1C1A17) else Color.White
+
+/** Glyphs sitting on the primary disc: inverse of [content]. */
+val SonoraColors.contentInverse: Color
+    get() = if (isLight) Color.White else Color.Black
+
+/** Frosted fill for floating controls: dark glass vs milk glass. */
+val SonoraColors.frost: Color
+    get() = if (isLight) Color.White.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.14f)
+
+/** Card wash over the canvas gradient. */
+val SonoraColors.wash: Color
+    get() = if (isLight) Color(0xFF1C1A17).copy(alpha = 0.05f) else Color.White.copy(alpha = 0.07f)
+
+/** Field fill for inputs. */
+val SonoraColors.field: Color
+    get() = if (isLight) Color(0xFF1C1A17).copy(alpha = 0.07f) else Color.White.copy(alpha = 0.08f)

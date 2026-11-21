@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Settings
@@ -23,18 +24,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.sonora.liquid.LiquidConfigStore
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
+import com.sonora.theme.content
 import com.sonora.theme.SonoraShapes
+import com.sonora.theme.ThemeStore
 
 /**
  * M8 options sheet behind the player's "..." button: shuffle, repeat,
- * Liquid entry points and the playing track's format readout.
+ * appearance, Liquid entry points and the playing track's format readout.
  */
 @Composable
 fun PlayerOptionsSheet(
@@ -70,10 +72,10 @@ fun PlayerOptionsSheet(
                 checked = state.shuffle,
                 onCheckedChange = { state.toggleShuffle() },
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = Color.White.copy(alpha = 0.4f),
-                    uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                    uncheckedTrackColor = Color.White.copy(alpha = 0.18f),
+                    checkedThumbColor = colors.content,
+                    checkedTrackColor = colors.content.copy(alpha = 0.4f),
+                    uncheckedThumbColor = colors.content.copy(alpha = 0.6f),
+                    uncheckedTrackColor = colors.content.copy(alpha = 0.18f),
                 ),
             )
         }
@@ -87,6 +89,12 @@ fun PlayerOptionsSheet(
             },
             active = state.repeatMode != RepeatMode.OFF,
             onClick = { state.cycleRepeat() },
+        )
+        OptionRow(
+            icon = Icons.Filled.Palette,
+            label = "Appearance",
+            value = ThemeStore.mode.label,
+            onClick = { ThemeStore.cycle() },
         )
         OptionRow(
             icon = Icons.Filled.WaterDrop,

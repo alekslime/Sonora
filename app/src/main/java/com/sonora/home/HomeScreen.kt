@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +46,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonora.components.CoverArt
+import com.sonora.components.RowEnter
+import com.sonora.components.SwipeLike
 import com.sonora.components.rememberTapTick
 import com.sonora.data.Album
 import com.sonora.data.PlaybackSnapshot
@@ -59,6 +63,9 @@ import com.sonora.nowplaying.QueueSpecs
 import com.sonora.nowplaying.rememberQueueArtist
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
+import com.sonora.theme.content
+import com.sonora.theme.contentInverse
+import com.sonora.theme.wash
 import com.sonora.theme.SonoraShapes
 
 enum class HomeTab(val label: String, val icon: ImageVector) {
@@ -124,7 +131,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .clip(SonoraShapes.small)
                                 .clickable(role = Role.Button, onClickLabel = "Use my music library", onClick = onExitDemo)
-                                .background(Color.White.copy(alpha = 0.12f))
+                                .background(colors.content.copy(alpha = 0.12f))
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                         )
                     }
@@ -195,12 +202,20 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.height(6.dp))
             }
-            items(recent, key = { LikedStore.keyFor(it.album, it.trackIndex) }) { entry ->
-                HistoryRow(
-                    entry = entry,
-                    onPlay = { onPlayQueue(entry, recentAll, QueueSpecs.recent(recentAll.size)) },
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                )
+            itemsIndexed(recent, key = { _, entry -> LikedStore.keyFor(entry.album, entry.trackIndex) }) { index, entry ->
+                val key = remember(entry) { LikedStore.keyFor(entry.album, entry.trackIndex) }
+                RowEnter(index) {
+                    SwipeLike(
+                        liked = LikedStore.isLiked(key),
+                        onToggle = { LikedStore.toggle(key) },
+                    ) {
+                        HistoryRow(
+                            entry = entry,
+                            onPlay = { onPlayQueue(entry, recentAll, QueueSpecs.recent(recentAll.size)) },
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                    }
+                }
             }
             item { Spacer(Modifier.height(20.dp)) }
         }
@@ -219,7 +234,7 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
                     .clip(SonoraShapes.medium)
-                    .background(Color.White.copy(alpha = 0.07f))
+                    .background(colors.wash)
                     .clickable(role = Role.Button, onClickLabel = "Open library", onClick = onOpenLibrary)
                     .padding(horizontal = 16.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -264,7 +279,7 @@ private fun ContinueCard(
         modifier
             .fillMaxWidth()
             .clip(SonoraShapes.medium)
-            .background(Color.White.copy(alpha = 0.07f))
+            .background(colors.wash)
             .clickable(role = Role.Button, onClickLabel = "Continue listening", onClick = onResume)
             .padding(16.dp),
     ) {
@@ -300,14 +315,14 @@ private fun ContinueCard(
                         .fillMaxWidth()
                         .height(3.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.18f)),
+                        .background(colors.content.copy(alpha = 0.18f)),
                 ) {
                     Box(
                         Modifier
                             .fillMaxWidth(fraction.coerceIn(0f, 1f))
                             .height(3.dp)
                             .clip(CircleShape)
-                            .background(Color.White),
+                            .background(colors.content),
                     )
                 }
             }
@@ -316,10 +331,10 @@ private fun ContinueCard(
                 Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(Color.White),
+                    .background(colors.content),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.Black, modifier = Modifier.size(26.dp))
+                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = colors.contentInverse, modifier = Modifier.size(26.dp))
             }
         }
     }
@@ -337,7 +352,7 @@ private fun StatsCard(albums: List<Album>, modifier: Modifier = Modifier) {
         modifier
             .fillMaxWidth()
             .clip(SonoraShapes.medium)
-            .background(Color.White.copy(alpha = 0.07f))
+            .background(colors.wash)
             .padding(16.dp),
     ) {
         Text("Your stats".uppercase(), style = type.labelCaps, color = colors.ivoryFaint)
@@ -486,7 +501,7 @@ fun ObsidianTabBar(selected: HomeTab, onSelect: (HomeTab) -> Unit, modifier: Mod
             Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(Color.White.copy(alpha = 0.08f)),
+                .background(colors.content.copy(alpha = 0.08f)),
         )
         Row(
             Modifier
@@ -511,21 +526,22 @@ fun ObsidianTabBar(selected: HomeTab, onSelect: (HomeTab) -> Unit, modifier: Mod
                     Icon(
                         tab.icon,
                         contentDescription = null,
-                        tint = if (active) Color.White else Color.White.copy(alpha = 0.4f),
+                        tint = if (active) colors.content else colors.content.copy(alpha = 0.4f),
                         modifier = Modifier.size(24.dp),
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
                         tab.label.uppercase(),
                         style = type.labelCaps.copy(letterSpacing = 1.2.sp),
-                        color = if (active) Color.White else Color.White.copy(alpha = 0.4f),
+                        color = if (active) colors.content else colors.content.copy(alpha = 0.4f),
                     )
                     Spacer(Modifier.height(3.dp))
                     Box(
                         Modifier
-                            .size(4.dp)
+                            .width(if (active) 18.dp else 4.dp)
+                            .height(4.dp)
                             .clip(CircleShape)
-                            .background(if (active) Color.White else Color.Transparent),
+                            .background(if (active) colors.content else Color.Transparent),
                     )
                 }
             }

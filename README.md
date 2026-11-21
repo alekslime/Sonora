@@ -21,6 +21,7 @@ tracking.
 - M12 — Songs/artists/playlists library, virtual cross-album queues, save panel, lifetime listening stats. (done)
 - M13 — Polish: serif display face, hero transitions, backdrop fade, shimmer covers, haptics, splash, wide adaptivity. (done)
 - M14 — Performance: pre-blurred cached backdrops, scoped ticker reads, installable release build. (done)
+- M15 — Light theme, marquee titles, fast scroller, scrub bubble, swipe-to-like, pull-to-rescan, skip toast, entrances, tinted glass. (done)
 
 ## Build
 

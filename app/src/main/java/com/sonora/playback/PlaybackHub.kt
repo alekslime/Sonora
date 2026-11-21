@@ -44,6 +44,9 @@ object PlaybackHub {
     private val _playlistEnded = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val playlistEnded: SharedFlow<Unit> = _playlistEnded.asSharedFlow()
 
+    private val _skippedTrack = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val skippedTrack: SharedFlow<String> = _skippedTrack.asSharedFlow()
+
     /** Clears sticky state for a fresh session. Main-thread only. */
     fun reset() {
         _positionMs.value = 0L
@@ -89,5 +92,9 @@ object PlaybackHub {
 
     fun emitEnded() {
         _playlistEnded.tryEmit(Unit)
+    }
+
+    fun emitSkipped(title: String) {
+        _skippedTrack.tryEmit(title)
     }
 }

@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -180,6 +181,33 @@ fun rememberAlbumArtwork(album: Album, sizePx: Int = 512): ImageBitmap? {
         }
     }
     return art
+}
+
+/**
+ * Average cover color, sampled on a stride. Pure over the pixels.
+ */
+fun averageColor(art: ImageBitmap): Color {
+    val w = art.width
+    val h = art.height
+    if (w <= 0 || h <= 0) return Color.Gray
+    val pixels = IntArray(w * h)
+    art.readPixels(pixels, 0, 0, w, h)
+    var r = 0L
+    var g = 0L
+    var b = 0L
+    var n = 0L
+    val stride = 8
+    for (y in 0 until h step stride) {
+        for (x in 0 until w step stride) {
+            val color = pixels[y * w + x]
+            r += (color shr 16) and 0xFF
+            g += (color shr 8) and 0xFF
+            b += color and 0xFF
+            n++
+        }
+    }
+    if (n == 0L) return Color.Gray
+    return Color((r / n).toInt(), (g / n).toInt(), (b / n).toInt())
 }
 
 /**

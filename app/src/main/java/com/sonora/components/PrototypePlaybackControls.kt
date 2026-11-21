@@ -20,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
+import com.sonora.theme.contentInverse
 
 /**
  * Detail playback actions. Play and Shuffle open Now Playing (real audio
@@ -105,9 +105,9 @@ private fun PrototypeAction(
             contentPadding = buttonPadding,
             colors = ButtonDefaults.buttonColors(
                 containerColor = colors.ivory,
-                contentColor = Color.Black,
+                contentColor = colors.contentInverse,
                 disabledContainerColor = colors.ivory.copy(alpha = 0.28f),
-                disabledContentColor = Color.Black.copy(alpha = 0.75f),
+                disabledContentColor = colors.contentInverse.copy(alpha = 0.75f),
             ),
         ) {
             Icon(icon, contentDescription = null)

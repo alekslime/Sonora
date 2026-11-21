@@ -33,6 +33,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
+import com.sonora.theme.content
+import com.sonora.theme.contentInverse
+import com.sonora.theme.field
 import com.sonora.theme.SonoraShapes
 
 /**
@@ -140,8 +143,8 @@ fun PlusSheet(
                     singleLine = true,
                     shape = SonoraShapes.small,
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.White.copy(alpha = 0.08f),
-                        unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+                        focusedContainerColor = colors.field,
+                        unfocusedContainerColor = colors.field,
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent,
                         focusedTextColor = colors.ivory,
@@ -153,11 +156,11 @@ fun PlusSheet(
                 Text(
                     "Create".uppercase(),
                     style = type.labelCaps,
-                    color = if (draft.isBlank()) colors.ivoryFaint else Color.Black,
+                    color = if (draft.isBlank()) colors.ivoryFaint else colors.contentInverse,
                     modifier = Modifier
                         .clip(SonoraShapes.small)
                         .background(
-                            if (draft.isBlank()) Color.White.copy(alpha = 0.10f) else Color.White,
+                            if (draft.isBlank()) colors.content.copy(alpha = 0.10f) else colors.content,
                         )
                         .clickable(
                             role = Role.Button,

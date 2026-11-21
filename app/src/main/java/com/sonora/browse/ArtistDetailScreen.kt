@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
@@ -26,11 +26,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,6 +44,8 @@ import com.sonora.nowplaying.LikedEntry
 import com.sonora.nowplaying.LikedStore
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
+import com.sonora.theme.content
+import com.sonora.theme.contentInverse
 import com.sonora.theme.SonoraShapes
 
 /**
@@ -128,38 +130,42 @@ fun ArtistDetailScreen(
                     Modifier
                         .weight(1f)
                         .clip(SonoraShapes.small)
-                        .background(Color.White)
+                        .background(colors.content)
                         .clickable(role = Role.Button, onClickLabel = "Play all", onClick = { onPlayAll(songs) })
                         .padding(vertical = 12.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.Black, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = colors.contentInverse, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Play", style = type.labelCaps, color = Color.Black)
+                    Text("Play", style = type.labelCaps, color = colors.contentInverse)
                 }
                 Row(
                     Modifier
                         .weight(1f)
                         .clip(SonoraShapes.small)
-                        .background(Color.White.copy(alpha = 0.10f))
+                        .background(colors.content.copy(alpha = 0.10f))
                         .clickable(role = Role.Button, onClickLabel = "Shuffle", onClick = { onShuffle(songs) })
                         .padding(vertical = 12.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Filled.Shuffle, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Shuffle, contentDescription = null, tint = colors.content, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Shuffle", style = type.labelCaps, color = Color.White)
+                    Text("Shuffle", style = type.labelCaps, color = colors.content)
                 }
             }
             Spacer(Modifier.height(12.dp))
         }
-        items(songs, key = { LikedStore.keyFor(it.album, it.trackIndex) }) { song ->
+        itemsIndexed(songs, key = { _, song -> LikedStore.keyFor(song.album, song.trackIndex) }) { index, song ->
+            val key = remember(song) { LikedStore.keyFor(song.album, song.trackIndex) }
             SongRow(
                 entry = song,
                 onPlay = { onPlaySong(song, songs) },
                 modifier = Modifier.padding(horizontal = 20.dp),
+                enterIndex = index,
+                liked = LikedStore.isLiked(key),
+                onSwipeLike = { LikedStore.toggle(key) },
             )
         }
     }

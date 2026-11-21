@@ -42,6 +42,7 @@ object SonoraPrefs {
     private val HISTORY = stringPreferencesKey("play_history")
     private val PLAYLISTS = stringPreferencesKey("playlists")
     private val STATS = stringPreferencesKey("listening_stats")
+    private val THEME = stringPreferencesKey("theme_mode")
 
     suspend fun loadStudio(context: Context): AudioStudioConfig {
         val prefs = context.sonoraDataStore.data.first()
@@ -151,6 +152,24 @@ object SonoraPrefs {
     suspend fun saveStats(context: Context) {
         context.sonoraDataStore.edit { prefs ->
             prefs[STATS] = com.sonora.nowplaying.ListeningStats.encode()
+        }
+    }
+
+    /** M15 appearance mode. Reads degrade to system. */
+    suspend fun loadTheme(context: Context): com.sonora.theme.ThemeMode {
+        val prefs = context.sonoraDataStore.data.first()
+        return try {
+            val raw = prefs[THEME]
+            if (raw == null) com.sonora.theme.ThemeMode.SYSTEM
+            else com.sonora.theme.ThemeMode.valueOf(raw)
+        } catch (_: IllegalArgumentException) {
+            com.sonora.theme.ThemeMode.SYSTEM
+        }
+    }
+
+    suspend fun saveTheme(context: Context, mode: com.sonora.theme.ThemeMode) {
+        context.sonoraDataStore.edit { prefs ->
+            prefs[THEME] = mode.name
         }
     }
 

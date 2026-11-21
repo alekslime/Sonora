@@ -22,7 +22,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
+import com.sonora.theme.content
 
 /**
  * M13 cover art with a shimmer sweep while loading and the seeded
@@ -36,9 +38,11 @@ fun CoverArt(
     contentDescription: String? = null,
 ) {
     val type = LocalSonoraTypography.current
+    val colors = LocalSonoraColors.current
     Box(
         modifier.background(
-            if (art == null) rememberShimmerBrush() else SolidColor(Color(0xFF1A1A1A)),
+            if (art == null) rememberShimmerBrush()
+            else SolidColor(if (colors.isLight) Color(0xFFE7E1D4) else Color(0xFF1A1A1A)),
         ),
         contentAlignment = Alignment.Center,
     ) {
@@ -53,7 +57,7 @@ fun CoverArt(
             Text(
                 fallbackLetter,
                 style = type.display,
-                color = Color.White.copy(alpha = 0.25f),
+                color = colors.content.copy(alpha = 0.25f),
             )
         }
     }
@@ -61,6 +65,7 @@ fun CoverArt(
 
 @Composable
 private fun rememberShimmerBrush(): Brush {
+    val light = LocalSonoraColors.current.isLight
     val transition = rememberInfiniteTransition(label = "cover-shimmer")
     val offset by transition.animateFloat(
         initialValue = 0f,
@@ -69,8 +74,13 @@ private fun rememberShimmerBrush(): Brush {
         label = "sweep",
     )
     val x = -400f + offset * 1200f
+    val stops = if (light) {
+        listOf(Color(0xFFE3DDD0), Color(0xFFF4F0E6), Color(0xFFE3DDD0))
+    } else {
+        listOf(Color(0xFF1E1E2E), Color(0xFF2E2E40), Color(0xFF1E1E2E))
+    }
     return Brush.linearGradient(
-        listOf(Color(0xFF1E1E2E), Color(0xFF2E2E40), Color(0xFF1E1E2E)),
+        stops,
         start = Offset(x, 0f),
         end = Offset(x + 400f, 300f),
     )

@@ -35,9 +35,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import android.app.Activity
 import android.content.pm.PackageManager
+import android.widget.Toast
 import com.sonora.browse.ArtistDetailScreen
 import com.sonora.browse.BrowseScreen
 import com.sonora.browse.EmptyLibraryScreen
@@ -82,6 +86,7 @@ import com.sonora.studio.AudioStudioStore
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.SonoraMotion
 import com.sonora.theme.SonoraTheme
+import com.sonora.theme.ThemeStore
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
@@ -167,6 +172,27 @@ fun SonoraApp() {
             library = if (albums.isEmpty()) LibraryState.Empty else LibraryState.Ready(albums)
         }
 
+        var refreshing by remember { mutableStateOf(false) }
+
+        /** Pull-to-rescan: re-scans without flashing the loading screen. */
+        fun rescan() {
+            scope.launch {
+                if (refreshing) return@launch
+                if (ContextCompat.checkSelfPermission(appContext, audioLibraryPermission()) !=
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    return@launch
+                }
+                refreshing = true
+                try {
+                    val albums = MediaLibrary.scanLibrary(appContext.contentResolver)
+                    library = if (albums.isEmpty()) LibraryState.Empty else LibraryState.Ready(albums)
+                } finally {
+                    refreshing = false
+                }
+            }
+        }
+
         val permissionLauncher =
             rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
                 scope.launch { refreshLibrary() }
@@ -179,6 +205,7 @@ fun SonoraApp() {
             LikedStore.replace(SonoraPrefs.loadLiked(appContext))
             PlayHistory.replace(SonoraPrefs.loadHistory(appContext))
             PlaylistsStore.replace(SonoraPrefs.loadPlaylists(appContext))
+            ThemeStore.replace(SonoraPrefs.loadTheme(appContext))
             SonoraPrefs.loadStats(appContext)?.let {
                 ListeningStats.replace(it.plays, it.ms, it.artists, it.tracks)
             }
@@ -188,6 +215,7 @@ fun SonoraApp() {
             launch { snapshotFlow { LikedStore.liked }.collect { SonoraPrefs.saveLiked(appContext, it) } }
             launch { snapshotFlow { PlayHistory.entries }.collect { SonoraPrefs.saveHistory(appContext, it) } }
             launch { snapshotFlow { PlaylistsStore.lists }.collect { SonoraPrefs.savePlaylists(appContext, it) } }
+            launch { snapshotFlow { ThemeStore.mode }.collect { SonoraPrefs.saveTheme(appContext, it) } }
             launch { snapshotFlow { ListeningStats.totalPlays }.collect { SonoraPrefs.saveStats(appContext) } }
             refreshLibrary()
         }
@@ -228,6 +256,15 @@ fun SonoraApp() {
             }
         }
         val current = stack.last()
+        // System bar glyphs follow the theme: dark icons on paper.
+        val view = LocalView.current
+        LaunchedEffect(colors.isLight) {
+            val window = (view.context as? Activity)?.window ?: return@LaunchedEffect
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = colors.isLight
+                isAppearanceLightNavigationBars = colors.isLight
+            }
+        }
         val gestureConfig = GestureConfigStore.config
         val assistiveTouch = remember(appContext) { isAssistiveTouchActive(appContext) }
         val gestureContext = when {
@@ -298,6 +335,11 @@ fun SonoraApp() {
         fun expandPlayer() {
             val active = session ?: return
             push(Destination.NowPlaying(active.album.id, active.trackIndex))
+        }
+        LaunchedEffect(Unit) {
+            PlaybackHub.skippedTrack.collect { title ->
+                Toast.makeText(appContext, "Skipped unplayable file: $title", Toast.LENGTH_SHORT).show()
+            }
         }
         BackHandler(enabled = stack.size > 1) { pop() }
 
@@ -376,6 +418,8 @@ fun SonoraApp() {
                                 onOpenAlbum = { push(Destination.Detail(it.id)) },
                                 demo = isDemo,
                                 onExitDemo = exitDemo,
+                                isRefreshing = refreshing,
+                                onRefresh = ::rescan,
                                 onPlaySong = { entry, context ->
                                     playQueue(entry, context, QueueSpecs.all(context.size))
                                 },

@@ -127,4 +127,25 @@ class VirtualQueueTest {
         assertEquals("a1", entries[1].album.id)
         assertTrue(LikedStore.resolveOrdered(emptyList(), albums()).isEmpty())
     }
+
+    @Test
+    fun artAlbumResolvesOriginPerPosition() {
+        val entries = listOf(LikedEntry(albums()[0], 1), LikedEntry(albums()[1], 0))
+        val queue = buildQueueAlbum(QueueSpecs.all(2), entries)
+        assertEquals("a1", queueArtAlbum(queue, 0, albums()).id)
+        assertEquals("a2", queueArtAlbum(queue, 1, albums()).id)
+    }
+
+    @Test
+    fun artAlbumFallsBackToQueueItself() {
+        val library = albums()
+        // Library albums report themselves.
+        assertEquals(library[0], queueArtAlbum(library[0], 0, library))
+        val entries = listOf(LikedEntry(library[0], 1), LikedEntry(library[1], 0))
+        val queue = buildQueueAlbum(QueueSpecs.all(2), entries)
+        // Origin gone from the library: keep the queue cover.
+        assertEquals(queue, queueArtAlbum(queue, 1, emptyList()))
+        // Out-of-range position: keep the queue cover.
+        assertEquals(queue, queueArtAlbum(queue, 9, library))
+    }
 }

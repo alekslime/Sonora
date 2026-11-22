@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.sonora.data.Album
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
@@ -57,9 +58,11 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    /** Origin album for the cover; virtual queues resolve the library. */
+    artAlbum: Album = session.album,
 ) {
     val type = LocalSonoraTypography.current
-    val art = rememberAlbumArtwork(session.album)
+    val art = rememberAlbumArtwork(artAlbum)
     val tick = rememberTapTick()
     val colors = LocalSonoraColors.current
     val heroModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
@@ -89,7 +92,7 @@ fun MiniPlayer(
             ) {
                 CoverArt(
                     art = art,
-                    fallbackLetter = session.album.title.firstOrNull()?.uppercase() ?: "",
+                    fallbackLetter = artAlbum.title.firstOrNull()?.uppercase() ?: "",
                     modifier = heroModifier
                         .size(48.dp)
                         .clip(RoundedCornerShape(12.dp)),

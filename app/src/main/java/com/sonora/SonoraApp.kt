@@ -77,7 +77,9 @@ import com.sonora.nowplaying.QueueIds
 import com.sonora.nowplaying.QueueSpec
 import com.sonora.nowplaying.QueueSpecs
 import com.sonora.nowplaying.buildQueueAlbum
+import com.sonora.nowplaying.queueArtAlbum
 import com.sonora.nowplaying.rebuildQueue
+import com.sonora.nowplaying.rememberQueueArtAlbum
 import com.sonora.nowplaying.rememberQueueArtist
 import com.sonora.playback.PlaybackHub
 import com.sonora.playback.PlaybackOrchestrator
@@ -512,13 +514,10 @@ fun SonoraApp() {
                                     onSession = { session = it },
                                     adoptSession = session,
                                     artistFor = { index ->
-                                        if (!QueueIds.isQueue(album.id)) {
-                                            album.artist
-                                        } else {
-                                            val key = LikedStore.keyFor(album, index)
-                                            LikedStore.resolveOrdered(listOf(key), libraryAlbums)
-                                                .firstOrNull()?.album?.artist ?: album.artist
-                                        }
+                                        queueArtAlbum(album, index, libraryAlbums).artist
+                                    },
+                                    artAlbumFor = { index ->
+                                        queueArtAlbum(album, index, libraryAlbums)
                                     },
                                     sharedTransitionScope = this@SharedTransitionLayout,
                                     animatedVisibilityScope = this,
@@ -541,6 +540,9 @@ fun SonoraApp() {
                                 MiniPlayer(
                                     session = miniSession,
                                     artistLine = rememberQueueArtist(
+                                        miniSession.album, miniSession.trackIndex, libraryAlbums,
+                                    ),
+                                    artAlbum = rememberQueueArtAlbum(
                                         miniSession.album, miniSession.trackIndex, libraryAlbums,
                                     ),
                                     onExpand = ::expandPlayer,

@@ -147,6 +147,8 @@ fun NowPlayingScreen(
     adoptSession: NowPlayingState? = null,
     /** Canonical artist per track; virtual queues resolve the library. */
     artistFor: (Int) -> String = { album.artist },
+    /** Origin album per track; artwork, backdrop and tint follow it. */
+    artAlbumFor: (Int) -> Album = { album },
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
@@ -175,8 +177,6 @@ fun NowPlayingScreen(
         }
     }
     val localState = remember(album.id, startTrackIndex) { NowPlayingState(album, startTrackIndex) }
-    val heroArt = rememberAlbumArtwork(album)
-    val glassTint = remember(heroArt) { heroArt?.let(::averageColor) }
     val orchestrated = PlaybackOrchestrator.state
     val adopted = adoptSession?.takeIf { !album.isReal && it.album.id == album.id }
     val state = if (album.isReal && orchestrated?.album?.id == album.id) {
@@ -184,6 +184,9 @@ fun NowPlayingScreen(
     } else {
         adopted ?: localState
     }
+    val artAlbum = remember(album.id, state.trackIndex) { artAlbumFor(state.trackIndex) }
+    val heroArt = rememberAlbumArtwork(artAlbum)
+    val glassTint = remember(heroArt) { heroArt?.let(::averageColor) }
     val engine = remember(album.id) { if (album.isReal) ServiceEngine.get(context) else null }
     // Service stopped alone (swiped away while paused) across a relaunch:
     // restart the session where it stood instead of commanding a ghost.
@@ -284,7 +287,7 @@ fun NowPlayingScreen(
             .fillMaxSize()
             .semantics { contentDescription = "Now playing" },
     ) {
-        ObsidianBackdrop(album = album)
+        ObsidianBackdrop(album = artAlbum)
         if (maxWidth > maxHeight) {
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -295,7 +298,7 @@ fun NowPlayingScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     ObsidianArtwork(
-                        album = album,
+                        album = artAlbum,
                         onOpenLiquid = onOpenLiquid,
                         modifier = Modifier
                             .fillMaxHeight()
@@ -344,7 +347,7 @@ fun NowPlayingScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 ObsidianArtwork(
-                    album = album,
+                    album = artAlbum,
                     onOpenLiquid = onOpenLiquid,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -627,12 +630,14 @@ private fun ObsidianArtwork(
             },
         contentAlignment = Alignment.Center,
     ) {
-        CoverArt(
-            art = art,
-            fallbackLetter = album.title.firstOrNull()?.uppercase() ?: "",
-            contentDescription = "Cover art for ${album.title}",
-            modifier = Modifier.fillMaxSize(),
-        )
+        Crossfade(targetState = art, animationSpec = tween(600), label = "hero-art") { current ->
+            CoverArt(
+                art = current,
+                fallbackLetter = album.title.firstOrNull()?.uppercase() ?: "",
+                contentDescription = "Cover art for ${album.title}",
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 

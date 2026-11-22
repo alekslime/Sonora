@@ -35,21 +35,32 @@ fun slugArtist(name: String): String {
 }
 
 /**
+ * Display album for a queue position: library albums report
+ * themselves, virtual queues resolve the track's origin album so
+ * artwork, backdrop and tint follow the song instead of freezing
+ * on the first entry's cover.
+ */
+fun queueArtAlbum(album: Album, trackIndex: Int, library: List<Album>): Album {
+    if (!QueueIds.isQueue(album.id)) return album
+    val key = LikedStore.keyFor(album, trackIndex)
+    return LikedStore.resolveOrdered(listOf(key), library).firstOrNull()?.album ?: album
+}
+
+@Composable
+fun rememberQueueArtAlbum(album: Album, trackIndex: Int, library: List<Album>): Album {
+    return remember(album.id, trackIndex, library) {
+        queueArtAlbum(album, trackIndex, library)
+    }
+}
+
+/**
  * Display artist for a queue position: library albums report
  * themselves, virtual queues resolve the canonical artist so rows
  * read "Northfield Howl" instead of "192 songs".
  */
 @Composable
 fun rememberQueueArtist(album: Album, trackIndex: Int, library: List<Album>): String {
-    return remember(album.id, trackIndex, library) {
-        if (!QueueIds.isQueue(album.id)) {
-            album.artist
-        } else {
-            val key = LikedStore.keyFor(album, trackIndex)
-            LikedStore.resolveOrdered(listOf(key), library).firstOrNull()?.album?.artist
-                ?: album.artist
-        }
-    }
+    return rememberQueueArtAlbum(album, trackIndex, library).artist
 }
 
 /** Inverse of [slugArtist]; percent-decoding runs last on purpose. */

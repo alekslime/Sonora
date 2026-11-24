@@ -60,7 +60,7 @@ object PlaybackOrchestrator {
         engine.sendQueue(
             uris = album.tracks.map { it.uri!! },
             titles = album.tracks.map { it.title },
-            artists = List(album.tracks.size) { album.artist },
+            artists = album.tracks.map { it.artist ?: album.artist },
             index = fresh.trackIndex,
             singleQueue = fresh.shuffle || !AudioStudioStore.config.gapless,
             positionMs = fresh.positionMs,

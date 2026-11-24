@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.sonora.components.CoverArt
 import com.sonora.components.RowEnter
 import com.sonora.components.SwipeLike
+import com.sonora.components.rememberTapTick
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.toMinSec
 import com.sonora.nowplaying.LikedEntry
@@ -46,13 +47,14 @@ fun SongRow(
     val type = LocalSonoraTypography.current
     val art = rememberAlbumArtwork(entry.album)
     val track = entry.album.tracks[entry.trackIndex]
+    val tick = rememberTapTick()
     RowEnter(enterIndex, modifier) {
         val row: @Composable () -> Unit = {
             Row(
                 Modifier
                     .fillMaxWidth()
                     .clip(SonoraShapes.small)
-                    .clickable(role = Role.Button, onClickLabel = "Play ${track.title}", onClick = onPlay)
+                    .clickable(role = Role.Button, onClickLabel = "Play ${track.title}", onClick = { tick(); onPlay() })
                     .padding(vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

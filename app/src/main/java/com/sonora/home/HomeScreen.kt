@@ -275,12 +275,13 @@ private fun ContinueCard(
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     val art = rememberAlbumArtwork(album)
+    val tick = rememberTapTick()
     Column(
         modifier
             .fillMaxWidth()
             .clip(SonoraShapes.medium)
             .background(colors.wash)
-            .clickable(role = Role.Button, onClickLabel = "Continue listening", onClick = onResume)
+            .clickable(role = Role.Button, onClickLabel = "Continue listening", onClick = { tick(); onResume() })
             .padding(16.dp),
     ) {
         Text("Continue listening".uppercase(), style = type.labelCaps, color = colors.ivoryFaint)
@@ -423,11 +424,12 @@ private fun LikedCard(entry: LikedEntry, onPlay: () -> Unit) {
     val type = LocalSonoraTypography.current
     val art = rememberAlbumArtwork(entry.album)
     val track = entry.album.tracks[entry.trackIndex]
+    val tick = rememberTapTick()
     Column(
         Modifier
             .width(112.dp)
             .clip(SonoraShapes.small)
-            .clickable(role = Role.Button, onClickLabel = "Play ${track.title}", onClick = onPlay),
+            .clickable(role = Role.Button, onClickLabel = "Play ${track.title}", onClick = { tick(); onPlay() }),
     ) {
         CoverArt(
             art = art,
@@ -454,11 +456,12 @@ private fun HistoryRow(entry: LikedEntry, onPlay: () -> Unit, modifier: Modifier
     val type = LocalSonoraTypography.current
     val art = rememberAlbumArtwork(entry.album)
     val track = entry.album.tracks[entry.trackIndex]
+    val tick = rememberTapTick()
     Row(
         modifier
             .fillMaxWidth()
             .clip(SonoraShapes.small)
-            .clickable(role = Role.Button, onClickLabel = "Play ${track.title}", onClick = onPlay)
+            .clickable(role = Role.Button, onClickLabel = "Play ${track.title}", onClick = { tick(); onPlay() })
             .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

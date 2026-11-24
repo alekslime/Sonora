@@ -229,7 +229,7 @@ fun NowPlayingScreen(
     // initial queue, so the first run only records what was applied.
     val uris = remember(album.id) { album.tracks.mapNotNull { it.uri } }
     val titles = remember(album.id) { album.tracks.map { it.title } }
-    val artists = remember(album.id) { List(album.tracks.size) { album.artist } }
+    val artists = remember(album.id) { album.tracks.map { it.artist ?: album.artist } }
     val studioConfig = AudioStudioStore.config
     val singleQueue = state.shuffle || !studioConfig.gapless
     var appliedSingleQueue by remember { mutableStateOf<Boolean?>(null) }
@@ -775,6 +775,7 @@ private fun TimeRow(state: NowPlayingState, badge: String, modifier: Modifier = 
 private fun ObsidianSeekBar(state: NowPlayingState, onSeek: (Float) -> Unit, modifier: Modifier = Modifier) {
     // Reads the clock here so the player body skips per-tick recomposition.
     val fraction = state.fraction
+    val tick = rememberTapTick()
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     val density = LocalDensity.current
@@ -808,7 +809,7 @@ private fun ObsidianSeekBar(state: NowPlayingState, onSeek: (Float) -> Unit, mod
                     .fillMaxSize()
                     .pointerInput("tap", widthPx) {
                         detectTapGestures { offset ->
-                            onSeek((offset.x / widthPx).coerceIn(0f, 1f))
+                            tick(); onSeek((offset.x / widthPx).coerceIn(0f, 1f))
                         }
                     }
                     .pointerInput("drag", widthPx) {

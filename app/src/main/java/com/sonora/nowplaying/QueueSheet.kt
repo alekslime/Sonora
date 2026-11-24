@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.sonora.components.rememberTapTick
 import com.sonora.data.Album
 import com.sonora.data.toMinSec
 import com.sonora.theme.LocalSonoraColors
@@ -41,6 +42,7 @@ fun QueueSheet(
 ) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
+    val tick = rememberTapTick()
     Column(modifier.fillMaxWidth()) {
         Text(
             "Up Next",
@@ -72,7 +74,7 @@ fun QueueSheet(
                         .clickable(
                             role = Role.Button,
                             onClickLabel = "Play ${track.title}",
-                            onClick = { onPlayTrack(index) },
+                            onClick = { tick(); onPlayTrack(index) },
                         )
                         .padding(horizontal = 24.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,

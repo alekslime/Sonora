@@ -62,6 +62,7 @@ object MediaLibrary {
                             title = row.title.ifBlank { "Unknown title" },
                             durationMs = row.durationMs.coerceAtLeast(0L),
                             uri = row.uri,
+                            artist = row.artist.ifBlank { "Unknown artist" },
                         )
                     },
                     artSeed = albumId,

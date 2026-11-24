@@ -112,6 +112,7 @@ fun buildQueueAlbum(spec: QueueSpec, entries: List<LikedEntry>): Album {
                 durationMs = track.durationMs,
                 uri = track.uri,
                 originKey = LikedStore.keyFor(entry.album, entry.trackIndex),
+                artist = track.artist ?: entry.album.artist,
             )
         },
         artSeed = first?.album?.artSeed ?: spec.id.hashCode().toLong(),

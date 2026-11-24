@@ -13,6 +13,12 @@ data class Track(
      * of the queue. Null everywhere else.
      */
     val originKey: String? = null,
+    /**
+     * Performing artist for this track. Set on MediaStore rows (which
+     * vary inside compilation albums) and virtual-queue tracks (which
+     * span albums); null elsewhere, where the album artist applies.
+     */
+    val artist: String? = null,
 )
 
 /** An album in the library (mock for M1 demo, MediaStore-backed for M5). */

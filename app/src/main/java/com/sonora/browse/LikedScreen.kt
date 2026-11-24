@@ -40,6 +40,7 @@ import com.sonora.components.CoverArt
 import com.sonora.components.FastScroller
 import com.sonora.components.RowEnter
 import com.sonora.components.SwipeLike
+import com.sonora.components.rememberTapTick
 import com.sonora.data.Album
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.toMinSec
@@ -162,11 +163,12 @@ private fun LikedRowContent(
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     val track = entry.album.tracks[entry.trackIndex]
+    val tick = rememberTapTick()
     Row(
         Modifier
             .fillMaxWidth()
             .clip(SonoraShapes.small)
-            .clickable(role = Role.Button, onClickLabel = "Play ${track.title}", onClick = onPlay)
+            .clickable(role = Role.Button, onClickLabel = "Play ${track.title}", onClick = { tick(); onPlay() })
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -198,7 +200,7 @@ private fun LikedRowContent(
             Modifier
                 .size(48.dp)
                 .clip(SonoraShapes.extraSmall)
-                .clickable(role = Role.Button, onClickLabel = "Unlike ${track.title}", onClick = onToggleLike)
+                .clickable(role = Role.Button, onClickLabel = "Unlike ${track.title}", onClick = { tick(); onToggleLike() })
                 .semantics { contentDescription = "Unlike ${track.title}" },
             contentAlignment = Alignment.Center,
         ) {

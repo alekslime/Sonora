@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.sonora.components.CoverArt
 import com.sonora.components.NowPlayingIndicator
 import com.sonora.components.RowEnter
+import com.sonora.components.SwipeLeftActions
 import com.sonora.components.SwipeLike
 import com.sonora.components.rememberTapTick
 import com.sonora.data.rememberAlbumArtwork
@@ -43,6 +46,7 @@ fun SongRow(
     enterIndex: Int = 0,
     liked: Boolean = false,
     onSwipeLike: (() -> Unit)? = null,
+    onSwipeLeft: (() -> Unit)? = null,
     nowPlaying: Boolean = false,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
@@ -91,7 +95,14 @@ fun SongRow(
                 trailing()
             }
         }
-        if (onSwipeLike != null) {
+        if (onSwipeLeft != null) {
+            SwipeLeftActions(
+                icon = Icons.Filled.QueueMusic,
+                color = colors.amber,
+                content = { row() },
+                onAction = { tick(); onSwipeLeft() },
+            )
+        } else if (onSwipeLike != null) {
             SwipeLike(liked = liked, onToggle = onSwipeLike) { row() }
         } else {
             row()

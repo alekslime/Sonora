@@ -261,6 +261,7 @@ fun BrowseScreen(
                                     enterIndex = index,
                                     liked = LikedStore.isLiked(key),
                                     onSwipeLike = { LikedStore.toggle(key) },
+                                    onSwipeLeft = { onPlaySong(entry, visibleSongs) },
                                     nowPlaying = key == sessionKey,
                                 )
                             }

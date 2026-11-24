@@ -117,6 +117,8 @@ import com.sonora.theme.LocalSonoraTypography
 import com.sonora.theme.content
 import com.sonora.theme.contentInverse
 import com.sonora.theme.frost
+import com.sonora.theme.rememberSonoraScale
+import com.sonora.theme.scaled
 
 private val ArtShape = RoundedCornerShape(28.dp)
 
@@ -549,7 +551,7 @@ private fun ObsidianTopBar(
             Text(
                 "Now Playing",
                 style = type.caption.copy(
-                    fontSize = 13.sp,
+                    fontSize = (13.0f * rememberSonoraScale()).sp,
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 0.5.sp,
                 ),
@@ -690,16 +692,18 @@ private fun PlayerStack(
     val type = LocalSonoraTypography.current
     val colors = LocalSonoraColors.current
     val artistLine = remember(state.album.id, state.trackIndex) { artistFor(state.trackIndex) }
+    val scale = rememberSonoraScale()
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
                     state.track.title,
-                    style = type.headline.copy(
-                        fontSize = 26.sp,
-                        lineHeight = 30.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    ),
+                    style = type.headline
+                        .copy(
+                            fontSize = (26.0f * scale).sp,
+                            lineHeight = (30.0f * scale).sp,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
                     color = colors.content,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -708,7 +712,7 @@ private fun PlayerStack(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     artistLine,
-                    style = type.body.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                    style = type.body.copy(fontSize = (15.0f * scale).sp, fontWeight = FontWeight.Medium),
                     color = colors.content.copy(alpha = 0.6f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -786,7 +790,7 @@ private fun TrackDetails(
     if (details.isEmpty()) return
     Text(
         details.joinToString(" · "),
-        style = type.caption.copy(fontSize = 12.sp),
+        style = type.caption.copy(fontSize = (12.0f * rememberSonoraScale()).sp),
         color = colors.ivoryFaint,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -798,10 +802,11 @@ private fun TrackDetails(
 private fun TimeRow(state: NowPlayingState, badge: String, modifier: Modifier = Modifier) {
     val type = LocalSonoraTypography.current
     val colors = LocalSonoraColors.current
+    val scale = rememberSonoraScale()
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             state.positionMs.toMinSec(),
-            style = type.caption.copy(fontSize = 12.sp),
+            style = type.caption.copy(fontSize = (12.0f * scale).sp),
             color = colors.content.copy(alpha = 0.6f),
         )
         Spacer(Modifier.weight(1f))
@@ -814,7 +819,7 @@ private fun TimeRow(state: NowPlayingState, badge: String, modifier: Modifier = 
         Spacer(Modifier.width(4.dp))
         Text(
             badge,
-            style = type.caption.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium),
+            style = type.caption.copy(fontSize = (12.0f * scale).sp, fontWeight = FontWeight.Medium),
             color = colors.content.copy(alpha = 0.6f),
         )
         Spacer(Modifier.weight(1f))

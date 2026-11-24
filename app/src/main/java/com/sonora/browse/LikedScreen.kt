@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -81,6 +85,7 @@ fun LikedScreen(
     val type = LocalSonoraTypography.current
     val sessionKey = session?.let { LikedStore.keyFor(it.album, it.trackIndex) }
     var query by rememberSaveable { mutableStateOf("") }
+    var grid by rememberSaveable { mutableStateOf(false) }
     val entries = LikedStore.resolve(LikedStore.liked, albums).filter { entry ->
         query.isBlank() ||
             entry.album.tracks[entry.trackIndex].title.contains(query, ignoreCase = true) ||
@@ -109,6 +114,24 @@ fun LikedScreen(
                 style = type.caption,
                 color = colors.ivoryDim,
             )
+        }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            listOf("List" to false, "Grid" to true).forEach { (label, value) ->
+                Text(
+                    label.uppercase(),
+                    style = type.labelCaps,
+                    color = if (grid == value) colors.ivory else colors.ivoryFaint,
+                    modifier = Modifier
+                        .clip(SonoraShapes.extraSmall)
+                        .clickable(role = Role.Tab) { grid = value }
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                )
+            }
         }
         TextField(
             value = query,
@@ -169,28 +192,48 @@ fun LikedScreen(
         }
         val listState = rememberLazyListState()
         Box(Modifier.fillMaxSize()) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-            ) {
-                itemsIndexed(entries, key = { _, entry -> LikedStore.keyFor(entry.album, entry.trackIndex) }) { index, entry ->
-                    LikedRow(
-                        entry = entry,
-                        onPlay = { onPlayQueue(entry, entries) },
-                        onToggleLike = {
-                            LikedStore.toggle(LikedStore.keyFor(entry.album, entry.trackIndex))
-                        },
-                        enterIndex = index,
-                        nowPlaying = LikedStore.keyFor(entry.album, entry.trackIndex) == sessionKey,
-                    )
+            if (grid) {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(120.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    itemsIndexed(entries, key = { _, entry -> LikedStore.keyFor(entry.album, entry.trackIndex) }) { index, entry ->
+                        LikedCard(
+                            entry = entry,
+                            onPlay = { onPlayQueue(entry, entries) },
+                            onToggleLike = {
+                                LikedStore.toggle(LikedStore.keyFor(entry.album, entry.trackIndex))
+                            },
+                            nowPlaying = LikedStore.keyFor(entry.album, entry.trackIndex) == sessionKey,
+                            enterIndex = index,
+                        )
+                    }
                 }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                ) {
+                    itemsIndexed(entries, key = { _, entry -> LikedStore.keyFor(entry.album, entry.trackIndex) }) { index, entry ->
+                        LikedRow(
+                            entry = entry,
+                            onPlay = { onPlayQueue(entry, entries) },
+                            onToggleLike = {
+                                LikedStore.toggle(LikedStore.keyFor(entry.album, entry.trackIndex))
+                            },
+                            enterIndex = index,
+                            nowPlaying = LikedStore.keyFor(entry.album, entry.trackIndex) == sessionKey,
+                        )
+                    }
+                }
+                FastScroller(listState, sectionFor = {
+                    entries.getOrNull(it)?.let { entry ->
+                        entry.album.tracks[entry.trackIndex].title.firstOrNull()?.uppercase() ?: ""
+                    } ?: ""
+                })
             }
-            FastScroller(listState, sectionFor = {
-                entries.getOrNull(it)?.let { entry ->
-                    entry.album.tracks[entry.trackIndex].title.firstOrNull()?.uppercase() ?: ""
-                } ?: ""
-            })
         }
     }
 }
@@ -212,6 +255,50 @@ private fun LikedRow(
                 onPlay = onPlay,
                 onToggleLike = onToggleLike,
                 nowPlaying = nowPlaying,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LikedCard(
+    entry: LikedEntry,
+    onPlay: () -> Unit,
+    onToggleLike: () -> Unit,
+    nowPlaying: Boolean = false,
+    enterIndex: Int = 0,
+) {
+    val art = rememberAlbumArtwork(entry.album)
+    RowEnter(enterIndex) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(SonoraShapes.small)
+                .clickable(role = Role.Button, onClickLabel = "Play ${entry.album.tracks[entry.trackIndex].title}", onClick = onPlay),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            CoverArt(
+                art = art,
+                fallbackLetter = entry.album.title.firstOrNull()?.uppercase() ?: "",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(SonoraShapes.small),
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                entry.album.tracks[entry.trackIndex].title,
+                style = LocalSonoraTypography.current.title,
+                color = LocalSonoraColors.current.ivory,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                entry.album.artist,
+                style = LocalSonoraTypography.current.caption,
+                color = LocalSonoraColors.current.ivoryDim,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

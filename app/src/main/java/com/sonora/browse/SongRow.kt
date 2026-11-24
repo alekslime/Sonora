@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sonora.components.CoverArt
 import com.sonora.components.NowPlayingIndicator
@@ -48,6 +49,7 @@ fun SongRow(
     onSwipeLike: (() -> Unit)? = null,
     onSwipeLeft: (() -> Unit)? = null,
     nowPlaying: Boolean = false,
+    artSize: Dp = 52.dp,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     val colors = LocalSonoraColors.current
@@ -72,7 +74,7 @@ fun SongRow(
                     art = art,
                     fallbackLetter = entry.album.title.firstOrNull()?.uppercase() ?: "",
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(artSize)
                         .clip(SonoraShapes.extraSmall),
                 )
                 Spacer(Modifier.width(12.dp))

@@ -48,6 +48,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sonora.components.CoverArt
 import com.sonora.components.FastScroller
@@ -225,6 +226,7 @@ fun LikedScreen(
                             },
                             enterIndex = index,
                             nowPlaying = LikedStore.keyFor(entry.album, entry.trackIndex) == sessionKey,
+                            artSize = 64.dp,
                         )
                     }
                 }
@@ -245,6 +247,7 @@ private fun LikedRow(
     onToggleLike: () -> Unit,
     enterIndex: Int = 0,
     nowPlaying: Boolean = false,
+    artSize: Dp = 56.dp,
 ) {
     val art = rememberAlbumArtwork(entry.album)
     RowEnter(enterIndex) {
@@ -255,6 +258,7 @@ private fun LikedRow(
                 onPlay = onPlay,
                 onToggleLike = onToggleLike,
                 nowPlaying = nowPlaying,
+                artSize = artSize,
             )
         }
     }
@@ -311,6 +315,7 @@ private fun LikedRowContent(
     onPlay: () -> Unit,
     onToggleLike: () -> Unit,
     nowPlaying: Boolean = false,
+    artSize: Dp = 56.dp,
 ) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
@@ -331,7 +336,7 @@ private fun LikedRowContent(
             art = art,
             fallbackLetter = entry.album.title.firstOrNull()?.uppercase() ?: "",
             modifier = Modifier
-                .size(56.dp)
+                .size(artSize)
                 .clip(SonoraShapes.extraSmall),
         )
         Spacer(Modifier.width(14.dp))

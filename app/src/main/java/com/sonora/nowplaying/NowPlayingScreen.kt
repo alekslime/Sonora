@@ -641,6 +641,9 @@ private fun ObsidianArtwork(
                 onClick = onOpenLiquid,
             )
             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .pointerInput("longpress") {
+                detectTapGestures(onLongPress = { onOpenLiquid() })
+            }
             .drawWithContent {
                 drawContent()
                 // True alpha dissolve: the card's own pixels fade out,

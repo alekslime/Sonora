@@ -149,6 +149,8 @@ fun HomeScreen(
                     trackTitle = session.track.title,
                     artistLine = rememberQueueArtist(session.album, session.trackIndex, albums),
                     fraction = session.fraction,
+                    positionMs = session.positionMs,
+                    durationMs = session.track.durationMs,
                     onResume = onResumeSession,
                     modifier = Modifier.padding(horizontal = 20.dp),
                 )
@@ -161,6 +163,8 @@ fun HomeScreen(
                     album = snapshotAlbum,
                     trackTitle = snapshot.trackTitles.getOrElse(snapshot.trackIndex) { snapshotAlbum.title },
                     fraction = snapshot.positionMs.toFloat() / total,
+                    positionMs = snapshot.positionMs,
+                    durationMs = total,
                     onResume = {
                         onResumeSnapshot(
                             snapshotAlbum, snapshot.trackIndex,
@@ -281,6 +285,8 @@ private fun ContinueCard(
     onResume: () -> Unit,
     modifier: Modifier = Modifier,
     artistLine: String = album.artist,
+    positionMs: Long = 0L,
+    durationMs: Long = 0L,
 ) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
@@ -334,6 +340,14 @@ private fun ContinueCard(
                             .height(3.dp)
                             .clip(CircleShape)
                             .background(colors.content),
+                    )
+                }
+                if (durationMs > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "${positionMs.toMinSec()} of ${durationMs.toMinSec()}",
+                        style = type.caption,
+                        color = colors.ivoryFaint,
                     )
                 }
             }

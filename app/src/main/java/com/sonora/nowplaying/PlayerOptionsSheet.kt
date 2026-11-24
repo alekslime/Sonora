@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Icon
@@ -44,6 +46,8 @@ fun PlayerOptionsSheet(
     formatLine: String?,
     onOpenLiquid: () -> Unit,
     onOpenLiquidSettings: () -> Unit,
+    onOpenPlus: () -> Unit = {},
+    onShareTrack: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalSonoraColors.current
@@ -89,6 +93,16 @@ fun PlayerOptionsSheet(
             },
             active = state.repeatMode != RepeatMode.OFF,
             onClick = { state.cycleRepeat() },
+        )
+        OptionRow(
+            icon = Icons.Filled.PlaylistPlay,
+            label = "Add to playlist",
+            onClick = onOpenPlus,
+        )
+        OptionRow(
+            icon = Icons.Filled.Share,
+            label = "Share track",
+            onClick = onShareTrack,
         )
         OptionRow(
             icon = Icons.Filled.Palette,

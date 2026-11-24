@@ -64,6 +64,7 @@ import com.sonora.data.LibraryLists
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.nowplaying.LikedEntry
 import com.sonora.nowplaying.LikedStore
+import com.sonora.nowplaying.NowPlayingState
 import com.sonora.nowplaying.PlaylistsStore
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
@@ -105,9 +106,11 @@ fun BrowseScreen(
     onOpenPlaylist: (String) -> Unit = {},
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
+    session: NowPlayingState? = null,
 ) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
+    val sessionKey = session?.let { LikedStore.keyFor(it.album, it.trackIndex) }
     var query by rememberSaveable { mutableStateOf("") }
     var sort by rememberSaveable { mutableStateOf(SortMode.TITLE) }
     var grid by rememberSaveable { mutableStateOf(false) }
@@ -258,6 +261,7 @@ fun BrowseScreen(
                                     enterIndex = index,
                                     liked = LikedStore.isLiked(key),
                                     onSwipeLike = { LikedStore.toggle(key) },
+                                    nowPlaying = key == sessionKey,
                                 )
                             }
                         }

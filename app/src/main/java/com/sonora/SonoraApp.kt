@@ -427,6 +427,7 @@ fun SonoraApp() {
                                 },
                                 onOpenArtist = { push(Destination.ArtistPage(it)) },
                                 onOpenPlaylist = { push(Destination.PlaylistPage(it)) },
+                                session = session,
                             )
                             Destination.Liked -> {
                                 LikedScreen(
@@ -434,6 +435,8 @@ fun SonoraApp() {
                                     onPlayQueue = { entry, context ->
                                         playQueue(entry, context, QueueSpecs.liked(context.size))
                                     },
+                                    session = session,
+                                    onOpenLibrary = { push(Destination.Browse) },
                                 )
                             }
                             is Destination.ArtistPage -> {

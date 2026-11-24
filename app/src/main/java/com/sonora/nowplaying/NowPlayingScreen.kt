@@ -1,6 +1,7 @@
 package com.sonora.nowplaying
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.BackHandler
@@ -42,6 +43,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Favorite
@@ -265,6 +267,7 @@ fun NowPlayingScreen(
     var queueOpen by rememberSaveable { mutableStateOf(false) }
     var optionsOpen by rememberSaveable { mutableStateOf(false) }
     var plusOpen by rememberSaveable { mutableStateOf(false) }
+    var lyricsOpen by rememberSaveable { mutableStateOf(false) }
     val format by PlaybackHub.format.collectAsState()
     val likedKey = remember(album.id, state.trackIndex) {
         LikedStore.keyFor(album, state.trackIndex)
@@ -280,6 +283,16 @@ fun NowPlayingScreen(
         } else {
             state.playTrack(index)
         }
+    }
+
+    fun shareTrack() {
+        val uri = state.track.uri ?: return
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "audio/*"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_TITLE, "${state.track.title} — ${state.album.artist}")
+        }
+        context.startActivity(Intent.createChooser(intent, null))
     }
 
     BoxWithConstraints(
@@ -332,6 +345,7 @@ fun NowPlayingScreen(
                         onOpenQueue = { queueOpen = true },
                         onOpenStudio = onOpenStudio,
                         onOpenPlus = { plusOpen = true },
+                        onOpenLyrics = { lyricsOpen = true },
                         artistFor = artistFor,
                         tint = glassTint,
                     )
@@ -368,6 +382,7 @@ fun NowPlayingScreen(
                     onOpenQueue = { queueOpen = true },
                     onOpenStudio = onOpenStudio,
                     onOpenPlus = { plusOpen = true },
+                    onOpenLyrics = { lyricsOpen = true },
                     artistFor = artistFor,
                     tint = glassTint,
                     modifier = Modifier.padding(horizontal = 28.dp),
@@ -405,6 +420,11 @@ fun NowPlayingScreen(
                         optionsOpen = false
                         liquidSheetOpen = true
                     },
+                    onOpenPlus = {
+                        optionsOpen = false
+                        plusOpen = true
+                    },
+                    onShareTrack = ::shareTrack,
                 )
             }
         }
@@ -429,6 +449,14 @@ fun NowPlayingScreen(
             ) {
                 LiquidSettingsSheet()
             }
+        }
+        if (lyricsOpen) {
+            LyricsView(
+                album = artAlbum,
+                trackIndex = state.trackIndex,
+                positionMs = state.positionMs,
+                onDismiss = { lyricsOpen = false },
+            )
         }
     }
 }
@@ -653,6 +681,7 @@ private fun PlayerStack(
     onOpenQueue: () -> Unit,
     onOpenStudio: () -> Unit,
     onOpenPlus: () -> Unit,
+    onOpenLyrics: () -> Unit,
     artistFor: (Int) -> String,
     tint: Color? = null,
     modifier: Modifier = Modifier,
@@ -698,6 +727,7 @@ private fun PlayerStack(
         )
         Spacer(Modifier.height(8.dp))
         TimeRow(state = state, badge = formatBadge(format))
+        TrackDetails(format = format, album = state.album)
         if (fillTransportGap) {
             Spacer(Modifier.weight(1f))
         } else {
@@ -716,6 +746,7 @@ private fun PlayerStack(
             onOpenPlus = onOpenPlus,
             onOpenQueue = onOpenQueue,
             onOpenStudio = onOpenStudio,
+            onOpenLyrics = onOpenLyrics,
             tint = tint,
         )
         if (demo) {
@@ -737,6 +768,30 @@ private fun formatBadge(format: TrackFormat?): String {
         "FLAC", "ALAC", "WAV" -> "Lossless"
         else -> format.codec.uppercase()
     }
+}
+
+@Composable
+private fun TrackDetails(
+    format: TrackFormat?,
+    album: Album,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalSonoraColors.current
+    val type = LocalSonoraTypography.current
+    val details = listOfNotNull(
+        format?.displayLine,
+        album.year.takeIf { it > 0 }?.toString(),
+        album.label.takeIf { it.isNotBlank() },
+    ).filter { !it.isNullOrBlank() }
+    if (details.isEmpty()) return
+    Text(
+        details.joinToString(" · "),
+        style = type.caption.copy(fontSize = 12.sp),
+        color = colors.ivoryFaint,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.fillMaxWidth(),
+    )
 }
 
 @Composable
@@ -916,6 +971,7 @@ private fun ObsidianActionRow(
     onOpenPlus: () -> Unit,
     onOpenQueue: () -> Unit,
     onOpenStudio: () -> Unit,
+    onOpenLyrics: () -> Unit,
     modifier: Modifier = Modifier,
     tint: Color? = null,
 ) {
@@ -946,6 +1002,9 @@ private fun ObsidianActionRow(
         }
         GlassCircleButton(onClick = onOpenStudio, description = "Open Audio Studio", size = 64.dp, tint = tint) {
             Icon(Icons.Filled.Tune, contentDescription = null, tint = colors.content, modifier = Modifier.size(26.dp))
+        }
+        GlassCircleButton(onClick = onOpenLyrics, description = "Open lyrics", size = 64.dp, tint = tint) {
+            Icon(Icons.Filled.EventNote, contentDescription = null, tint = colors.content, modifier = Modifier.size(26.dp))
         }
     }
 }

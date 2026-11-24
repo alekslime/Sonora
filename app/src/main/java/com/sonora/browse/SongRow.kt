@@ -2,6 +2,7 @@ package com.sonora.browse
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +19,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonora.components.CoverArt
+import com.sonora.components.NowPlayingIndicator
 import com.sonora.components.RowEnter
 import com.sonora.components.SwipeLike
 import com.sonora.components.rememberTapTick
@@ -41,6 +43,7 @@ fun SongRow(
     enterIndex: Int = 0,
     liked: Boolean = false,
     onSwipeLike: (() -> Unit)? = null,
+    nowPlaying: Boolean = false,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     val colors = LocalSonoraColors.current
@@ -58,6 +61,9 @@ fun SongRow(
                     .padding(vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (nowPlaying) {
+                    NowPlayingIndicator(color = colors.amber, modifier = Modifier.padding(start = 8.dp))
+                }
                 CoverArt(
                     art = art,
                     fallbackLetter = entry.album.title.firstOrNull()?.uppercase() ?: "",
@@ -70,7 +76,7 @@ fun SongRow(
                     Text(
                         track.title,
                         style = type.body,
-                        color = colors.ivory,
+                        color = if (nowPlaying) colors.amber else colors.ivory,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )

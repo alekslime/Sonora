@@ -42,10 +42,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonora.components.CoverArt
+import com.sonora.components.NowPlayingIndicator
 import com.sonora.components.RowEnter
 import com.sonora.components.SwipeLike
 import com.sonora.components.rememberTapTick
@@ -99,6 +101,7 @@ fun HomeScreen(
     val recentAll = PlayHistory.resolve(albums)
     val recent = recentAll.take(8)
     val stats = ListeningStats.summary()
+    val sessionKey = session?.let { LikedStore.keyFor(it.album, it.trackIndex) }
     val snapshotAlbum = rememberSnapshotAlbum(snapshot, albums)
     LazyColumn(
         modifier = modifier
@@ -213,6 +216,7 @@ fun HomeScreen(
                             entry = entry,
                             onPlay = { onPlayQueue(entry, recentAll, QueueSpecs.recent(recentAll.size)) },
                             modifier = Modifier.padding(horizontal = 20.dp),
+                            nowPlaying = LikedStore.keyFor(entry.album, entry.trackIndex) == sessionKey,
                         )
                     }
                 }
@@ -225,6 +229,12 @@ fun HomeScreen(
                     albums = albums,
                     modifier = Modifier.padding(horizontal = 20.dp),
                 )
+                Spacer(Modifier.height(20.dp))
+            }
+        }
+        if (session == null && snapshot == null && liked.isEmpty() && recent.isEmpty() && stats.totalPlays == 0) {
+            item {
+                HomeEmptyCard(onOpenLibrary = onOpenLibrary, modifier = Modifier.padding(horizontal = 20.dp))
                 Spacer(Modifier.height(20.dp))
             }
         }
@@ -392,6 +402,41 @@ private fun StatsCard(albums: List<Album>, modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun HomeEmptyCard(onOpenLibrary: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = LocalSonoraColors.current
+    val type = LocalSonoraTypography.current
+    val tick = rememberTapTick()
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(SonoraShapes.medium)
+            .background(colors.wash)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("Your library, your sound", style = type.display, color = colors.ivory)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "No continues, plays or stats yet — start by browsing your library.",
+            style = type.body,
+            color = colors.ivoryDim,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "Browse your library".uppercase(),
+            style = type.labelCaps,
+            color = colors.contentInverse,
+            modifier = Modifier
+                .clip(SonoraShapes.small)
+                .background(colors.content)
+                .clickable(role = Role.Button, onClickLabel = "Browse your library", onClick = { tick(); onOpenLibrary() })
+                .padding(horizontal = 18.dp, vertical = 12.dp),
+        )
+    }
+}
+
+@Composable
 private fun SectionHeader(title: String, action: String?, onOpen: (() -> Unit)?, modifier: Modifier = Modifier) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
@@ -451,7 +496,12 @@ private fun LikedCard(entry: LikedEntry, onPlay: () -> Unit) {
 }
 
 @Composable
-private fun HistoryRow(entry: LikedEntry, onPlay: () -> Unit, modifier: Modifier = Modifier) {
+private fun HistoryRow(
+    entry: LikedEntry,
+    onPlay: () -> Unit,
+    modifier: Modifier = Modifier,
+    nowPlaying: Boolean = false,
+) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     val art = rememberAlbumArtwork(entry.album)
@@ -465,6 +515,9 @@ private fun HistoryRow(entry: LikedEntry, onPlay: () -> Unit, modifier: Modifier
             .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (nowPlaying) {
+            NowPlayingIndicator(color = colors.amber, modifier = Modifier.padding(start = 8.dp))
+        }
         CoverArt(
             art = art,
             fallbackLetter = entry.album.title.firstOrNull()?.uppercase() ?: "",
@@ -477,7 +530,7 @@ private fun HistoryRow(entry: LikedEntry, onPlay: () -> Unit, modifier: Modifier
             Text(
                 track.title,
                 style = type.body,
-                color = colors.ivory,
+                color = if (nowPlaying) colors.amber else colors.ivory,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

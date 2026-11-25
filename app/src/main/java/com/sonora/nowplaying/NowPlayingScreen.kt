@@ -89,6 +89,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.layout.ContentScale
@@ -950,7 +952,19 @@ private fun ObsidianTransport(
     val tick = rememberTapTick()
     val colors = LocalSonoraColors.current
     Row(
-        modifier.fillMaxWidth(),
+        modifier
+            .fillMaxWidth()
+            .onKeyEvent { event ->
+                // Keyboard users get the same transport as touch: space
+                // toggles play, arrows move between tracks.
+                when (event.nativeKeyEvent.keyCode) {
+                    android.view.KeyEvent.KEYCODE_SPACE -> onToggle()
+                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> onPrev()
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> onNext()
+                    else -> return@onKeyEvent false
+                }
+                true
+            },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {

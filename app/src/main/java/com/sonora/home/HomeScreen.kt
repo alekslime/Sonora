@@ -78,6 +78,7 @@ import com.sonora.nowplaying.QueueSpecs
 import com.sonora.nowplaying.rememberQueueArtist
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
+import com.sonora.theme.ThemeShowcase
 import com.sonora.theme.content
 import com.sonora.theme.contentInverse
 import com.sonora.theme.field
@@ -274,6 +275,10 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.height(20.dp))
             }
+        }
+        item {
+            ThemeShowcase(modifier = Modifier.padding(horizontal = 20.dp))
+            Spacer(Modifier.height(20.dp))
         }
         if (session == null && snapshot == null && liked.isEmpty() && recent.isEmpty() && stats.totalPlays == 0) {
             item {

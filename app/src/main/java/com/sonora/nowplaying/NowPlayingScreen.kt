@@ -673,13 +673,29 @@ private fun ObsidianArtwork(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Crossfade(targetState = art, animationSpec = tween(600), label = "hero-art") { current ->
-            CoverArt(
-                art = current,
-                fallbackLetter = album.title.firstOrNull()?.uppercase() ?: "",
-                contentDescription = "Cover art for ${album.title}",
-                modifier = Modifier.fillMaxSize(),
-            )
+        // Stacked rotating artwork: three cards — the front one is the
+        // hero, the two behind sit slightly offset and rotated so the
+        // stack has a 3-D feel.
+        listOf(0, -6, -12).forEach { offsetDp ->
+            Crossfade(targetState = art, animationSpec = tween(600), label = "hero-art-$offsetDp") { current ->
+                CoverArt(
+                    art = current,
+                    fallbackLetter = album.title.firstOrNull()?.uppercase() ?: "",
+                    contentDescription = if (offsetDp == 0) "Cover art for ${album.title}" else null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .offset {
+                            IntOffset(
+                                (offsetDp * 4).dp.toPx().toInt(),
+                                (-offsetDp * 2).dp.toPx().toInt(),
+                            )
+                        }
+                        .graphicsLayer {
+                            rotationY = offsetDp * 0.7f
+                            alpha = if (offsetDp == 0) 1f else 0.82f
+                        },
+                )
+            }
         }
     }
 }

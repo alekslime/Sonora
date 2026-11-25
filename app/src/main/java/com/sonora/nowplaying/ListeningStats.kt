@@ -77,6 +77,24 @@ object ListeningStats {
         }.asReversed()
     }
 
+    /**
+     * Plays per week for the last [weeks] weeks (oldest-first): each
+     * entry sums the seven days of that week.
+     */
+    fun playsByWeek(weeks: Int = 6): List<Int> {
+        val today = java.time.LocalDate.now()
+        val out = mutableListOf<Int>()
+        for (w in 0 until weeks) {
+            val anchor = today.minusDays((w * 7).toLong())
+            var sum = 0
+            for (d in 0 until 7) {
+                sum += dayPlays[anchor.minusDays(d.toLong()).toString()] ?: 0
+            }
+            out += sum
+        }
+        return out.asReversed()
+    }
+
     fun reset() {
         totalPlays = 0
         totalMs = 0L

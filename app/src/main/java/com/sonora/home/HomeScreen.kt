@@ -47,6 +47,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -443,10 +445,35 @@ private fun StatsCard(albums: List<Album>, modifier: Modifier = Modifier) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        var weekly by rememberSaveable { mutableStateOf(false) }
         val plays = ListeningStats.playsByDay()
-        if (plays.sum() > 0) {
+        val weeks = ListeningStats.playsByWeek()
+        val anyPlays = plays.sum() > 0 || weeks.sum() > 0
+        if (anyPlays) {
             Spacer(Modifier.height(8.dp))
-            StatsSparkline(plays)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Daily".uppercase(),
+                    style = type.labelCaps,
+                    color = if (!weekly) colors.ivory else colors.ivoryFaint,
+                    modifier = Modifier
+                        .clip(SonoraShapes.extraSmall)
+                        .clickable(role = Role.Tab) { weekly = false }
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "Weekly".uppercase(),
+                    style = type.labelCaps,
+                    color = if (weekly) colors.ivory else colors.ivoryFaint,
+                    modifier = Modifier
+                        .clip(SonoraShapes.extraSmall)
+                        .clickable(role = Role.Tab) { weekly = true }
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            if (weekly) StatsBarSparkline(weeks) else StatsSparkline(plays)
         }
         if (topTrack != null) {
             Spacer(Modifier.height(6.dp))
@@ -477,6 +504,28 @@ private fun StatsSparkline(plays: List<Int>) {
             }
         }
         drawPath(path, colors.content.copy(alpha = 0.85f))
+    }
+}
+
+@Composable
+private fun StatsBarSparkline(weeks: List<Int>) {
+    val colors = LocalSonoraColors.current
+    val density = LocalDensity.current
+    val values = weeks
+    if (values.all { it == 0 }) return
+    Canvas(Modifier.size(104.dp, 32.dp)) {
+        val max = values.max().coerceAtLeast(1)
+        val barW = with(density) { 8.dp.toPx() }
+        val gap = with(density) { 3.dp.toPx() }
+        values.forEachIndexed { i, v ->
+            val x = i * (barW + gap)
+            val h = (v.toFloat() / max) * (size.height - 4.dp.toPx())
+            drawRect(
+                colors.content.copy(alpha = 0.85f),
+                Offset(x + barW / 2 - 2.dp.toPx(), size.height - h),
+                Size(4.dp.toPx(), h),
+            )
+        }
     }
 }
 

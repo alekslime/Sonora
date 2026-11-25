@@ -26,8 +26,14 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,15 +49,18 @@ import com.sonora.nowplaying.LikedEntry
 import com.sonora.nowplaying.LikedStore
 import com.sonora.nowplaying.NowPlayingState
 import com.sonora.nowplaying.Playlist
+import com.sonora.nowplaying.PlaylistsStore
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
 import com.sonora.theme.content
 import com.sonora.theme.contentInverse
+import com.sonora.theme.field
 import com.sonora.theme.SonoraShapes
 
 /**
  * M12 playlist page: counts, play-all and shuffle over the list in
- * playlist order, per-row remove, and delete at the bottom.
+ * playlist order, per-row remove, and delete at the bottom. Playlist
+ * descriptions are editable inline on the header.
  */
 @Composable
 fun PlaylistDetailScreen(
@@ -91,67 +100,52 @@ fun PlaylistDetailScreen(
             }
         }
         item {
-            Column(Modifier.padding(horizontal = 20.dp)) {
-                Text(
-                    playlist.name,
-                    style = type.display,
-                    color = colors.ivory,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    (if (songs.size == 1) "1 song" else "${songs.size} songs") +
-                        "  •  ${songs.sumOf { it.album.tracks[it.trackIndex].durationMs }.toMinSec()}",
-                    style = type.caption,
-                    color = colors.ivoryDim,
-                )
-                Spacer(Modifier.height(16.dp))
+            PlaylistHeader(playlist = playlist, songs = songs)
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    Modifier
+                        .weight(1f)
+                        .clip(SonoraShapes.small)
+                        .background(if (songs.isEmpty()) colors.content.copy(alpha = 0.25f) else colors.content)
+                        .clickable(
+                            role = Role.Button,
+                            onClickLabel = "Play all",
+                            enabled = songs.isNotEmpty(),
+                            onClick = { onPlayAll(songs) },
+                        )
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(
-                        Modifier
-                            .weight(1f)
-                            .clip(SonoraShapes.small)
-                            .background(if (songs.isEmpty()) colors.content.copy(alpha = 0.25f) else colors.content)
-                            .clickable(
-                                role = Role.Button,
-                                onClickLabel = "Play all",
-                                enabled = songs.isNotEmpty(),
-                                onClick = { onPlayAll(songs) },
-                            )
-                            .padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = colors.contentInverse, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Play", style = type.labelCaps, color = colors.contentInverse)
-                    }
-                    Row(
-                        Modifier
-                            .weight(1f)
-                            .clip(SonoraShapes.small)
-                            .background(colors.content.copy(alpha = 0.10f))
-                            .clickable(
-                                role = Role.Button,
-                                onClickLabel = "Shuffle",
-                                enabled = songs.isNotEmpty(),
-                                onClick = { onShuffle(songs) },
-                            )
-                            .padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Filled.Shuffle, contentDescription = null, tint = colors.content, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Shuffle", style = type.labelCaps, color = colors.content)
-                    }
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = colors.contentInverse, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Play", style = type.labelCaps, color = colors.contentInverse)
                 }
-                Spacer(Modifier.height(12.dp))
+                Row(
+                    Modifier
+                        .weight(1f)
+                        .clip(SonoraShapes.small)
+                        .background(colors.content.copy(alpha = 0.10f))
+                        .clickable(
+                            role = Role.Button,
+                            onClickLabel = "Shuffle",
+                            enabled = songs.isNotEmpty(),
+                            onClick = { onShuffle(songs) },
+                        )
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Shuffle, contentDescription = null, tint = colors.content, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Shuffle", style = type.labelCaps, color = colors.content)
+                }
             }
+            Spacer(Modifier.height(4.dp))
         }
         if (songs.isEmpty()) {
             item {
@@ -201,6 +195,81 @@ fun PlaylistDetailScreen(
                     .clip(SonoraShapes.small)
                     .clickable(role = Role.Button, onClickLabel = "Delete playlist", onClick = onDelete)
                     .padding(vertical = 14.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlaylistHeader(playlist: Playlist, songs: List<LikedEntry>, modifier: Modifier = Modifier) {
+    val colors = LocalSonoraColors.current
+    val type = LocalSonoraTypography.current
+    val duration = songs.sumOf { it.album.tracks[it.trackIndex].durationMs }
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var draft by rememberSaveable { mutableStateOf(playlist.description) }
+    Column(modifier.padding(horizontal = 20.dp)) {
+        Text(
+            playlist.name,
+            style = type.display,
+            color = colors.ivory,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            (if (songs.size == 1) "1 song" else "${songs.size} songs") + "  •  ${duration.toMinSec()}",
+            style = type.caption,
+            color = colors.ivoryDim,
+        )
+        Spacer(Modifier.height(4.dp))
+        if (editing) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = colors.field,
+                        unfocusedContainerColor = colors.field,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedTextColor = colors.ivory,
+                        unfocusedTextColor = colors.ivory,
+                        cursorColor = colors.ivory,
+                    ),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Done".uppercase(),
+                    style = type.labelCaps,
+                    color = colors.ivory,
+                    modifier = Modifier
+                        .clip(SonoraShapes.small)
+                        .background(colors.content)
+                        .clickable(
+                            role = Role.Button,
+                            onClick = {
+                                PlaylistsStore.setDescription(playlist.id, draft)
+                                editing = false
+                            },
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
+        } else {
+            val text = playlist.description.ifBlank { "Add description" }
+            Text(
+                text,
+                style = type.caption,
+                color = colors.ivoryDim,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(SonoraShapes.extraSmall)
+                    .clickable(role = Role.Button, onClickLabel = "Edit description", onClick = { editing = true })
+                    .padding(vertical = 2.dp),
             )
         }
     }

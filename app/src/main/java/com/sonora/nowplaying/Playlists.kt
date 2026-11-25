@@ -6,7 +6,12 @@ import androidx.compose.runtime.setValue
 import java.util.UUID
 
 /** A user playlist: ordered liked-style track keys. */
-data class Playlist(val id: String, val name: String, val keys: List<String>)
+data class Playlist(
+    val id: String,
+    val name: String,
+    val keys: List<String>,
+    val description: String = "",
+)
 
 /**
  * M12 playlists. Persisted through [com.sonora.data.SonoraPrefs];
@@ -32,6 +37,12 @@ object PlaylistsStore {
 
     fun delete(id: String) {
         lists = lists.filterNot { it.id == id }
+    }
+
+    fun setDescription(id: String, description: String) {
+        lists = lists.map { list ->
+            if (list.id == id) list.copy(description = description.trim()) else list
+        }
     }
 
     fun addTrack(id: String, key: String) {
@@ -74,6 +85,7 @@ object PlaylistsStore {
                 scrub(list.id),
                 scrub(list.name),
                 list.keys.joinToString(ITEM.toString()) { scrub(it) },
+                scrub(list.description),
             ).joinToString(FIELD.toString())
         }
     }
@@ -83,13 +95,17 @@ object PlaylistsStore {
         return raw.split("\n").mapNotNull { line ->
             if (line.isBlank()) return@mapNotNull null
             val fields = line.split(FIELD)
-            if (fields.size != 3 || fields[0].isBlank() || fields[1].isBlank()) return@mapNotNull null
+            // The 4th field (description) was added later; older rows decode without it.
+            if (fields.size !in 3..4 || fields[0].isBlank() || fields[1].isBlank()) {
+                return@mapNotNull null
+            }
             val keys = if (fields[2].isBlank()) {
                 emptyList()
             } else {
                 fields[2].split(ITEM).filter { it.isNotEmpty() }
             }
-            Playlist(fields[0], fields[1], keys)
+            val description = fields.getOrNull(3)?.ifBlank { null } ?: ""
+            Playlist(fields[0], fields[1], keys, description)
         }
     }
 

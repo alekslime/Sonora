@@ -13,6 +13,11 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode as AnimRepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -396,7 +401,7 @@ fun NowPlayingScreen(
         if (queueOpen) {
             ModalBottomSheet(
                 onDismissRequest = { queueOpen = false },
-                containerColor = colors.graphite,
+                containerColor = colors.frost,
                 contentColor = colors.ivory,
                 modifier = Modifier.border(0.8f.dp, colors.hairline, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
             ) {
@@ -410,7 +415,7 @@ fun NowPlayingScreen(
         if (optionsOpen) {
             ModalBottomSheet(
                 onDismissRequest = { optionsOpen = false },
-                containerColor = colors.graphite,
+                containerColor = colors.frost,
                 contentColor = colors.ivory,
                 modifier = Modifier.border(0.8f.dp, colors.hairline, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
             ) {
@@ -436,7 +441,7 @@ fun NowPlayingScreen(
         if (plusOpen) {
             ModalBottomSheet(
                 onDismissRequest = { plusOpen = false },
-                containerColor = colors.graphite,
+                containerColor = colors.frost,
                 contentColor = colors.ivory,
                 modifier = Modifier.border(0.8f.dp, colors.hairline, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
             ) {
@@ -450,7 +455,7 @@ fun NowPlayingScreen(
         if (liquidSheetOpen) {
             ModalBottomSheet(
                 onDismissRequest = { liquidSheetOpen = false },
-                containerColor = colors.graphite,
+                containerColor = colors.frost,
                 contentColor = colors.ivory,
                 modifier = Modifier.border(0.8f.dp, colors.hairline, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
             ) {
@@ -945,21 +950,53 @@ private fun ObsidianTransport(
                 Icon(Icons.Filled.FastRewind, contentDescription = null, tint = colors.content, modifier = Modifier.size(46.dp))
             }
         }
-        Surface(
-            onClick = { tick(); onToggle() },
-            modifier = Modifier
-                .size(92.dp)
-                .semantics { contentDescription = if (isPlaying) "Pause" else "Play" },
-            shape = CircleShape,
-            color = colors.content,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = null,
-                    tint = colors.contentInverse,
-                    modifier = Modifier.size(44.dp),
+        Box {
+            if (isPlaying) {
+                // Animated waiting indicator: a pulsing ring around the
+                // play disc while the track is active.
+                val ring = rememberInfiniteTransition(label = "play-ring")
+                val ringScale by ring.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 1.22f,
+                    animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing), AnimRepeatMode.Reverse),
+                    label = "ring",
                 )
+                Box(
+                    Modifier
+                        .size(102.dp)
+                        .clip(CircleShape)
+                        .background(Color.Transparent),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier
+                            .size(96.dp)
+                            .graphicsLayer {
+                                scaleX = ringScale
+                                scaleY = ringScale
+                                alpha = 0.5f
+                            }
+                            .clip(CircleShape)
+                            .background(colors.content),
+                    )
+                }
+            }
+            Surface(
+                onClick = { tick(); onToggle() },
+                modifier = Modifier
+                    .size(92.dp)
+                    .semantics { contentDescription = if (isPlaying) "Pause" else "Play" },
+                shape = CircleShape,
+                color = colors.content,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        tint = colors.contentInverse,
+                        modifier = Modifier.size(44.dp),
+                    )
+                }
             }
         }
         Surface(

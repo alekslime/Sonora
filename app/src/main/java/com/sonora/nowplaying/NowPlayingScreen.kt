@@ -72,6 +72,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.border
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -395,8 +396,9 @@ fun NowPlayingScreen(
         if (queueOpen) {
             ModalBottomSheet(
                 onDismissRequest = { queueOpen = false },
-                containerColor = colors.charcoal,
+                containerColor = colors.graphite,
                 contentColor = colors.ivory,
+                modifier = Modifier.border(0.8f.dp, colors.hairline, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
             ) {
                 QueueSheet(
                     album = album,
@@ -408,8 +410,9 @@ fun NowPlayingScreen(
         if (optionsOpen) {
             ModalBottomSheet(
                 onDismissRequest = { optionsOpen = false },
-                containerColor = colors.charcoal,
+                containerColor = colors.graphite,
                 contentColor = colors.ivory,
+                modifier = Modifier.border(0.8f.dp, colors.hairline, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
             ) {
                 PlayerOptionsSheet(
                     state = state,
@@ -433,8 +436,9 @@ fun NowPlayingScreen(
         if (plusOpen) {
             ModalBottomSheet(
                 onDismissRequest = { plusOpen = false },
-                containerColor = colors.charcoal,
+                containerColor = colors.graphite,
                 contentColor = colors.ivory,
+                modifier = Modifier.border(0.8f.dp, colors.hairline, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
             ) {
                 PlusSheet(
                     trackKey = likedKey,
@@ -446,8 +450,9 @@ fun NowPlayingScreen(
         if (liquidSheetOpen) {
             ModalBottomSheet(
                 onDismissRequest = { liquidSheetOpen = false },
-                containerColor = colors.charcoal,
+                containerColor = colors.graphite,
                 contentColor = colors.ivory,
+                modifier = Modifier.border(0.8f.dp, colors.hairline, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
             ) {
                 LiquidSettingsSheet()
             }

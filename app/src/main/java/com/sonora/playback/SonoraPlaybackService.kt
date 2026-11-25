@@ -694,14 +694,20 @@ class SonoraPlaybackService : MediaSessionService() {
     }
 
     private fun buildItem(uri: String, queueIndex: Int): MediaItem {
+        val metadata = MediaMetadata.Builder()
+            .setTitle(queueTitles.getOrNull(queueIndex)?.ifBlank { null } ?: "Unknown title")
+            .setArtist(queueArtists.getOrNull(queueIndex)?.ifBlank { null } ?: "Unknown artist")
+            .setDescription(
+                // Lock-screen description reads better with album context.
+                listOfNotNull(
+                    queueArtists.getOrNull(queueIndex)?.ifBlank { null },
+                    queueTitles.getOrNull(queueIndex)?.ifBlank { null },
+                ).joinToString("  •  ").ifBlank { null },
+            )
+            .build()
         return MediaItem.Builder()
             .setUri(uri)
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(queueTitles.getOrNull(queueIndex)?.ifBlank { null } ?: "Unknown title")
-                    .setArtist(queueArtists.getOrNull(queueIndex)?.ifBlank { null } ?: "Unknown artist")
-                    .build(),
-            )
+            .setMediaMetadata(metadata)
             .build()
     }
 

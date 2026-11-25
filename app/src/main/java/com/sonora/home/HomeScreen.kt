@@ -1,7 +1,9 @@
 package com.sonora.home
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,8 +46,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -325,11 +329,15 @@ private fun ContinueCard(
     val type = LocalSonoraTypography.current
     val art = rememberAlbumArtwork(album)
     val tick = rememberTapTick()
+    val light = colors.isLight
     Column(
         modifier
             .fillMaxWidth()
             .clip(SonoraShapes.medium)
             .background(colors.wash)
+            .then(
+                if (light) Modifier.border(0.5f.dp, colors.hairline, SonoraShapes.medium) else Modifier
+            )
             .clickable(role = Role.Button, onClickLabel = "Continue listening", onClick = { tick(); onResume() })
             .padding(16.dp),
     ) {
@@ -372,7 +380,7 @@ private fun ContinueCard(
                             .fillMaxWidth(fraction.coerceIn(0f, 1f))
                             .height(3.dp)
                             .clip(CircleShape)
-                            .background(colors.content),
+                            .background(if (light) colors.amber else colors.content),
                     )
                 }
                 if (durationMs > 0) {
@@ -435,6 +443,11 @@ private fun StatsCard(albums: List<Album>, modifier: Modifier = Modifier) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        val plays = ListeningStats.playsByDay()
+        if (plays.sum() > 0) {
+            Spacer(Modifier.height(8.dp))
+            StatsSparkline(plays)
+        }
         if (topTrack != null) {
             Spacer(Modifier.height(6.dp))
             Text(
@@ -445,6 +458,25 @@ private fun StatsCard(albums: List<Album>, modifier: Modifier = Modifier) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+@Composable
+private fun StatsSparkline(plays: List<Int>) {
+    val colors = LocalSonoraColors.current
+    val width = with(LocalDensity.current) { 104.dp.toPx() }
+    val height = with(LocalDensity.current) { 30.dp.toPx() }
+    val max = plays.max().coerceAtLeast(1)
+    Canvas(Modifier.size(104.dp, 30.dp)) {
+        val path = Path().apply {
+            val step = width / (plays.size - 1).coerceAtLeast(1).toFloat()
+            plays.forEachIndexed { i, v ->
+                val x = (i * step).coerceIn(0f, width)
+                val y = height - (v.toFloat() / max * height)
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+        }
+        drawPath(path, colors.content.copy(alpha = 0.85f))
     }
 }
 

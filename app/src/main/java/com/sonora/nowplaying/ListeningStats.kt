@@ -8,20 +8,21 @@ import androidx.compose.runtime.setValue
 /** Top-artist row. */
 data class ArtistCount(val name: String, val plays: Int)
 
-/** Decoded store contents; blank/malformed input decodes to null. */
-data class StatsData(
-    val plays: Int,
-    val ms: Long,
-    val artists: Map<String, Int>,
-    val tracks: Map<String, Int>,
-)
-
 /** Render-ready lifetime totals. */
 data class StatsSummary(
     val totalPlays: Int,
     val totalMs: Long,
     val topArtists: List<ArtistCount>,
     val topTrackKey: String?,
+)
+
+/** Decoded store contents including the per-day play counts. */
+data class StatsData(
+    val plays: Int,
+    val ms: Long,
+    val artists: Map<String, Int>,
+    val tracks: Map<String, Int>,
+    val dayPlays: Map<String, Int> = emptyMap(),
 )
 
 /**
@@ -33,6 +34,7 @@ object ListeningStats {
 
     const val MAX_ARTISTS = 100
     const val MAX_TRACKS = 300
+    const val MAX_DAYS = 365
 
     var totalPlays by mutableStateOf(0)
         private set
@@ -46,11 +48,33 @@ object ListeningStats {
     var trackPlays by mutableStateOf<Map<String, Int>>(emptyMap())
         private set
 
-    fun replace(plays: Int, ms: Long, artists: Map<String, Int>, tracks: Map<String, Int>) {
+    /** Plays per day ("YYYY-MM-DD"), capped for storage. */
+    var dayPlays by mutableStateOf<Map<String, Int>>(emptyMap())
+        private set
+
+    fun replace(
+        plays: Int,
+        ms: Long,
+        artists: Map<String, Int>,
+        tracks: Map<String, Int>,
+        days: Map<String, Int> = emptyMap(),
+    ) {
         totalPlays = plays.coerceAtLeast(0)
         totalMs = ms.coerceAtLeast(0L)
         artistPlays = cap(artists, MAX_ARTISTS)
         trackPlays = cap(tracks, MAX_TRACKS)
+        dayPlays = cap(days, MAX_DAYS)
+    }
+
+    /**
+     * Plays per day over the last [days], oldest-first, aligned to the
+     * current calendar date.
+     */
+    fun playsByDay(days: Int = 7): List<Int> {
+        val key = dayKey()
+        return List(days) { i ->
+            dayPlays[key.minusDays(i)] ?: 0
+        }.asReversed()
     }
 
     fun reset() {
@@ -63,9 +87,18 @@ object ListeningStats {
     fun record(artist: String, key: String, durationMs: Long) {
         totalPlays += 1
         totalMs += durationMs.coerceAtLeast(0L)
+        val today = dayKey()
+        dayPlays = cap(dayPlays + (today to (dayPlays[today] ?: 0) + 1), MAX_DAYS)
         artistPlays = cap(artistPlays + (artist to (artistPlays[artist] ?: 0) + 1), MAX_ARTISTS)
         trackPlays = cap(trackPlays + (key to (trackPlays[key] ?: 0) + 1), MAX_TRACKS)
     }
+
+    /** "YYYY-MM-DD" of the local current date. */
+    fun dayKey(): String = java.time.LocalDate.now().toString()
+
+    /** A [java.time.LocalDate] that is [daysAgo] days back. */
+    private fun String.minusDays(daysAgo: Int): String =
+        java.time.LocalDate.parse(this).minusDays(daysAgo.toLong()).toString()
 
     fun summary(): StatsSummary {
         val artists = artistPlays.entries
@@ -99,6 +132,7 @@ object ListeningStats {
         val lines = mutableListOf("$totalPlays,$totalMs")
         artistPlays.forEach { (name, count) -> lines += "a$FIELD${scrub(name)}$FIELD$count" }
         trackPlays.forEach { (key, count) -> lines += "t$FIELD${scrub(key)}$FIELD$count" }
+        dayPlays.forEach { (key, count) -> lines += "d$FIELD$key$FIELD$count" }
         return lines.joinToString("\n")
     }
 
@@ -111,6 +145,7 @@ object ListeningStats {
             if (totals.size != 2) return null
             val artists = mutableMapOf<String, Int>()
             val tracks = mutableMapOf<String, Int>()
+            val days = mutableMapOf<String, Int>()
             lines.drop(1).forEach { line ->
                 if (line.isBlank()) return@forEach
                 val fields = line.split(FIELD)
@@ -120,10 +155,11 @@ object ListeningStats {
                 when (fields[0]) {
                     "a" -> artists[fields[1]] = count
                     "t" -> tracks[fields[1]] = count
+                    "d" -> days[fields[1]] = count
                     else -> return null
                 }
             }
-            StatsData(totals[0].toInt(), totals[1].toLong(), artists, tracks)
+            StatsData(totals[0].toInt(), totals[1].toLong(), artists, tracks, days)
         } catch (_: NumberFormatException) {
             null
         }

@@ -18,17 +18,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.sonora.gesture.GestureConfigStore
 import kotlinx.coroutines.delay
 
 /**
  * Animated "this is playing right now" marker: a softly pulsing dot that
  * rides in front of the row's artwork. Pass a subtle accent color so the
- * dot reads as activity, not decoration.
+ * dot reads as activity, not decoration. Honors reduced motion: when
+ * the user prefers it, the dot renders static.
  */
 @Composable
 fun NowPlayingIndicator(color: Color, modifier: Modifier = Modifier) {
     var pulse by remember { mutableFloatStateOf(0.3f) }
     LaunchedEffect(Unit) {
+        if (GestureConfigStore.config.reducedMotion) return@LaunchedEffect
         while (true) {
             pulse = 1f
             delay(700)

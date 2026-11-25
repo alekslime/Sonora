@@ -28,10 +28,17 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,6 +74,7 @@ import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
 import com.sonora.theme.content
 import com.sonora.theme.contentInverse
+import com.sonora.theme.field
 import com.sonora.theme.wash
 import com.sonora.theme.SonoraShapes
 
@@ -97,9 +105,13 @@ fun HomeScreen(
 ) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
+    var query by rememberSaveable { mutableStateOf("") }
     val liked = LikedStore.resolve(LikedStore.liked, albums)
+        .filter { e -> query.isBlank() || e.album.tracks[e.trackIndex].title.contains(query, ignoreCase = true) }
     val recentAll = PlayHistory.resolve(albums)
-    val recent = recentAll.take(8)
+    val recent = recentAll
+        .filter { e -> query.isBlank() || e.album.tracks[e.trackIndex].title.contains(query, ignoreCase = true) }
+        .take(8)
     val stats = ListeningStats.summary()
     val sessionKey = session?.let { LikedStore.keyFor(it.album, it.trackIndex) }
     val snapshotAlbum = rememberSnapshotAlbum(snapshot, albums)
@@ -139,6 +151,27 @@ fun HomeScreen(
                         )
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                TextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    placeholder = { Text("Search your library", style = type.body, color = colors.ivoryFaint) },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = colors.ivoryDim) },
+                    singleLine = true,
+                    shape = SonoraShapes.large,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = colors.field,
+                        unfocusedContainerColor = colors.field,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedTextColor = colors.ivory,
+                        unfocusedTextColor = colors.ivory,
+                        cursorColor = colors.ivory,
+                    ),
+                )
             }
             Spacer(Modifier.height(12.dp))
         }

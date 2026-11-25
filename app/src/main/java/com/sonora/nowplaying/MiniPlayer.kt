@@ -6,6 +6,7 @@ import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -33,8 +35,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sonora.data.Album
 import com.sonora.data.rememberAlbumArtwork
+import com.sonora.data.toMinSec
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
 import com.sonora.theme.content
@@ -136,14 +140,55 @@ fun MiniPlayer(
                     }
                 }
             }
-            Box(
+            Column(
                 Modifier
                     .align(Alignment.BottomStart)
-                    .fillMaxWidth(session.fraction.coerceIn(0f, 1f))
-                    .height(2.dp)
-                    .clip(CircleShape)
-                    .background(colors.content.copy(alpha = 0.85f)),
-            )
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        session.positionMs.toMinSec(),
+                        style = type.caption.copy(fontSize = 11.sp),
+                        color = colors.content.copy(alpha = 0.6f),
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        session.durationMs.toMinSec(),
+                        style = type.caption.copy(fontSize = 11.sp),
+                        color = colors.content.copy(alpha = 0.6f),
+                    )
+                }
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(CircleShape),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(session.fraction.coerceIn(0f, 1f))
+                            .height(3.dp)
+                            .clip(CircleShape)
+                            .background(colors.content.copy(alpha = 0.85f)),
+                    )
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .clip(CircleShape)
+                            .pointerInput("seek") {
+                                detectTapGestures { offset ->
+                                    if (session.durationMs > 0) {
+                                        val fraction = (offset.x / size.width).coerceIn(0f, 1f)
+                                        session.seekTo((fraction * session.durationMs).toLong())
+                                    }
+                                }
+                            },
+                    )
+                }
+            }
         }
     }
 }

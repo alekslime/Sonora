@@ -39,6 +39,8 @@ import com.sonora.data.Album
 import com.sonora.data.Track
 import com.sonora.data.rememberAlbumArtwork
 import com.sonora.data.toMinSec
+import com.sonora.nowplaying.LikedStore
+import com.sonora.nowplaying.NowPlayingState
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
 import com.sonora.theme.SonoraShapes
@@ -54,9 +56,11 @@ fun AlbumDetailScreen(
     onPlayAlbum: (shuffle: Boolean) -> Unit,
     onPlayTrack: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    session: NowPlayingState? = null,
 ) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
+    val sessionKey = session?.let { LikedStore.keyFor(it.album, it.trackIndex) }
     BackHandler(onBack = onBack)
 
     LazyColumn(
@@ -114,6 +118,7 @@ fun AlbumDetailScreen(
             TrackRow(
                 track = track,
                 onPlay = { onPlayTrack(index) },
+                nowPlaying = LikedStore.keyFor(album, index) == sessionKey,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
         }
@@ -140,7 +145,12 @@ private fun DetailHeader(label: String, onBack: () -> Unit, modifier: Modifier =
 }
 
 @Composable
-private fun TrackRow(track: Track, onPlay: () -> Unit, modifier: Modifier = Modifier) {
+private fun TrackRow(
+    track: Track,
+    onPlay: () -> Unit,
+    nowPlaying: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     Row(
@@ -154,18 +164,18 @@ private fun TrackRow(track: Track, onPlay: () -> Unit, modifier: Modifier = Modi
         Text(
             "%02d".format(track.number),
             style = type.mono,
-            color = colors.ivoryFaint,
+            color = if (nowPlaying) colors.amber else colors.ivoryFaint,
             modifier = Modifier.width(32.dp),
         )
         Text(
             track.title,
             style = type.body,
-            color = colors.ivory,
+            color = if (nowPlaying) colors.amber else colors.ivory,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(12.dp))
-        Text(track.durationMs.toMinSec(), style = type.mono, color = colors.ivoryDim)
+        Text(track.durationMs.toMinSec(), style = type.mono, color = if (nowPlaying) colors.amber else colors.ivoryDim)
     }
 }

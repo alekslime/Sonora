@@ -474,6 +474,7 @@ fun SonoraApp() {
                                             PlaylistsStore.delete(playlist.id)
                                             pop()
                                         },
+                                        session = session,
                                     )
                                 }
                             }
@@ -481,6 +482,7 @@ fun SonoraApp() {
                                 val album = resolveAlbum(destination.albumId)
                                 AlbumDetailScreen(
                                     album = album,
+                                    session = session,
                                     onBack = { pop() },
                                     onPlayAlbum = { shuffle ->
                                         val start = if (shuffle) Random.nextInt(album.tracks.size) else 0

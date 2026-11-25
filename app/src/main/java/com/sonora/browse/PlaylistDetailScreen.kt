@@ -41,6 +41,7 @@ import com.sonora.data.Album
 import com.sonora.data.toMinSec
 import com.sonora.nowplaying.LikedEntry
 import com.sonora.nowplaying.LikedStore
+import com.sonora.nowplaying.NowPlayingState
 import com.sonora.nowplaying.Playlist
 import com.sonora.theme.LocalSonoraColors
 import com.sonora.theme.LocalSonoraTypography
@@ -63,10 +64,12 @@ fun PlaylistDetailScreen(
     onRemove: (key: String) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    session: NowPlayingState? = null,
 ) {
     val colors = LocalSonoraColors.current
     val type = LocalSonoraTypography.current
     val songs = LikedStore.resolveOrdered(playlist.keys, albums)
+    val sessionKey = session?.let { LikedStore.keyFor(it.album, it.trackIndex) }
     BackHandler(onBack = onBack)
     LazyColumn(
         modifier = modifier
@@ -172,6 +175,7 @@ fun PlaylistDetailScreen(
                 enterIndex = index,
                 liked = LikedStore.isLiked(key),
                 onSwipeLike = { LikedStore.toggle(key) },
+                nowPlaying = key == sessionKey,
             ) {
                 Box(
                     Modifier

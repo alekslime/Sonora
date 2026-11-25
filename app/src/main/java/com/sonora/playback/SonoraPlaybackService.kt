@@ -569,7 +569,7 @@ class SonoraPlaybackService : MediaSessionService() {
         val state = PlaybackOrchestrator.state ?: return
         val target = state.previewNext() ?: return
         val gaplessBoundary = studio.gapless && !state.shuffle && target == state.trackIndex + 1
-        val fadeMs = AudioStudioConfig.effectiveCrossfadeMs(studio, gaplessBoundary)
+        val fadeMs = AudioStudioConfig.effectiveCrossfadeMs(studio, gaplessBoundary, duration)
         if (fadeMs <= 0L) return
         val remaining = duration - front.currentPosition
         if (remaining > fadeMs || remaining <= 0L) return

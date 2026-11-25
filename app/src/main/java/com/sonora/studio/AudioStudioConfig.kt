@@ -56,10 +56,26 @@ data class AudioStudioConfig(
          * Effective crossfade at a track boundary. Never crossfades into a
          * gapless boundary (true gapless album playback stays intact) or
          * when the listener disabled crossfade.
+         *
+         * With a track duration, smart timing kicks in: longer tracks get
+         * longer fades (capped at [MAX_CROSSFADE_SECS]), shorter tracks get
+         * proportionally less (still at least [MIN_CROSSFADE_SECS]).
          */
-        fun effectiveCrossfadeMs(config: AudioStudioConfig, gaplessBoundary: Boolean): Long {
+        fun effectiveCrossfadeMs(
+            config: AudioStudioConfig,
+            gaplessBoundary: Boolean,
+            trackDurationMs: Long = 0L,
+        ): Long {
             if (!config.crossfadeEnabled || gaplessBoundary) return 0L
-            return config.crossfadeSecs.coerceIn(MIN_CROSSFADE_SECS, MAX_CROSSFADE_SECS) * 1000L
+            val baseSecs = config.crossfadeSecs.coerceIn(MIN_CROSSFADE_SECS, MAX_CROSSFADE_SECS)
+            if (trackDurationMs <= 0L) return baseSecs * 1000L
+            val durationSecs = trackDurationMs / 1000L
+            val smartSecs = when {
+                durationSecs >= 180 -> MAX_CROSSFADE_SECS
+                durationSecs >= 90 -> (baseSecs * 3 / 2).coerceAtLeast(MIN_CROSSFADE_SECS)
+                else -> (baseSecs * 2 / 3).coerceAtLeast(MIN_CROSSFADE_SECS)
+            }
+            return smartSecs.coerceIn(MIN_CROSSFADE_SECS, MAX_CROSSFADE_SECS) * 1000L
         }
     }
 }
